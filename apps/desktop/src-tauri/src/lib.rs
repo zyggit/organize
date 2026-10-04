@@ -108,6 +108,25 @@ fn engine_command() -> Result<Command, String> {
     if let Ok(binary) = env::var("ORGANIZE_GUI_ENGINE") {
         return Ok(Command::new(binary));
     }
+
+    let executable = env::current_exe()
+        .map_err(|error| format!("无法定位应用程序：{error}"))?;
+    let bundled_name = if cfg!(windows) {
+        "organize-engine.exe"
+    } else {
+        "organize-engine"
+    };
+    if let Some(directory) = executable.parent() {
+        let bundled = directory.join(bundled_name);
+        if bundled.is_file() {
+            return Ok(Command::new(bundled));
+        }
+    }
+
+    if !cfg!(debug_assertions) {
+        return Err("安装包中缺少整理引擎，请重新安装应用".into());
+    }
+
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let source = manifest.join("../../../engine/src");
     let source = source

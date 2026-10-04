@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "build:engine": "../../scripts/build-engine-sidecar.sh",
+    "build:bundle": "npm run build:engine && npm run build",
+    "bundle:macos": "tauri build --bundles app,dmg",
     "typecheck": "vue-tsc --noEmit",
     "tauri": "tauri"
   },

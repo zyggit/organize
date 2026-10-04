@@ -1,21 +1,28 @@
 <script setup lang="ts">
 import { useAppStore } from '../stores/app'
-import PageHeader from '../components/PageHeader.vue'
+import AppIcon from '../components/AppIcon.vue'
+import CareVisual from '../components/CareVisual.vue'
 import type { PresetType } from '../types'
 import { formatDate } from '../utils'
 
 const store = useAppStore()
-const presentation: Record<PresetType, { icon: string; safety: string; tone: string; flow: string[] }> = {
-  'by-type': { icon: '↓', safety: '只移动，不删除', tone: 'move', flow: ['下载', '文档', '图片', '视频', '+4'] },
-  'by-date': { icon: '▣', safety: '只移动，不删除', tone: 'move', flow: ['图片', '2026年', '10月'] },
-  'old-installers': { icon: '◇', safety: '进入隔离区，可恢复', tone: 'quarantine', flow: ['超过 90 天的安装包', '隔离区'] },
-  duplicates: { icon: '▦', safety: '由你选择保留哪一份', tone: 'undo', flow: ['下载', '桌面', '重复组', '隔离区'] },
+const today = new Date()
+const presentation: Record<PresetType, { icon: string; title: string; safety: string; tone: string; flow: string[] }> = {
+  'by-type': { icon: 'folder', title: '杂乱文件，有序归类', safety: '只移动，不删除', tone: 'mint', flow: ['下载文件夹', '按类型归类'] },
+  'by-date': { icon: 'image', title: '让每张照片找到位置', safety: '按修改日期归档', tone: 'blue', flow: ['照片与截图', `${today.getFullYear()}年 / ${today.getMonth() + 1}月`] },
+  'old-installers': { icon: 'archive', title: '给旧安装包腾个地方', safety: '移入隔离区，可恢复', tone: 'peach', flow: ['超过 90 天', '安全隔离'] },
+  duplicates: { icon: 'duplicate', title: '相同的文件，只留一份', safety: '由你选择保留项', tone: 'pink', flow: ['比对文件内容', '逐组选择'] },
 }
 </script>
 
 <template>
-  <div class="page scroll-page">
-    <PageHeader title="今天想整理哪里？" description="选一个方案。应用会先扫描并给出预览，你确认后才会移动文件。" />
+  <div class="page scroll-page home-page">
+    <header class="home-heading"><div><span class="eyebrow">YOUR SPACE, ORGANIZED</span><h1>智能整理</h1></div><span class="local-pill"><AppIcon name="lock" :size="14" />文件处理全程在本机</span></header>
+    <section class="home-hero">
+      <div class="hero-copy"><span class="hero-kicker"><AppIcon name="sparkle" :size="16" />少一点杂乱，多一点轻松</span><h2>让文件各归其位。</h2><p>从一个文件夹开始。先看清每个文件的去向，<br>再把整理这件事，放心交给 organize。</p><button class="button primary hero-action" :disabled="!store.engineReady" @click="store.choosePreset('by-type')">开始整理<AppIcon name="arrow" :size="18" /></button><small>选择文件夹后扫描 · 确认前不会改动文件</small></div>
+      <CareVisual />
+    </section>
+    <div class="home-section-heading"><h2>为你的文件，选择一种整理方式</h2><span>4 个工具，都以安全为先</span></div>
     <div class="home-grid">
       <div>
         <div class="preset-grid">
@@ -24,18 +31,19 @@ const presentation: Record<PresetType, { icon: string; safety: string; tone: str
             :key="preset.id"
             class="preset-card"
             :class="presentation[preset.id].tone"
+            :disabled="!store.engineReady"
             @click="store.choosePreset(preset.id)"
           >
             <div class="preset-top">
-              <span class="preset-icon">{{ presentation[preset.id].icon }}</span>
-              <div><h2>{{ preset.name }}</h2><p>{{ preset.description }}</p></div>
+              <span class="preset-icon"><AppIcon :name="presentation[preset.id].icon" :size="30" /></span>
+              <div><small>{{ preset.name }}</small><h2>{{ presentation[preset.id].title }}</h2><p>{{ preset.description }}</p></div>
             </div>
             <div class="flow-preview">
               <template v-for="(segment, index) in presentation[preset.id].flow" :key="`${segment}-${index}`">
                 <span>{{ segment }}</span><i v-if="index < presentation[preset.id].flow.length - 1">→</i>
               </template>
             </div>
-            <div class="preset-footer"><span class="safety-chip">{{ presentation[preset.id].safety }}</span><span>开始设置 ›</span></div>
+            <div class="preset-footer"><span class="safety-chip"><AppIcon name="check" :size="13" />{{ presentation[preset.id].safety }}</span><span class="preset-open"><AppIcon name="arrow" :size="18" /></span></div>
           </button>
         </div>
         <h3 v-if="store.history.length" class="section-title">最近任务</h3>
@@ -60,5 +68,6 @@ const presentation: Record<PresetType, { icon: string; safety: string; tone: str
         </section>
       </aside>
     </div>
+    <div class="home-trust"><span><AppIcon name="shield" :size="15" />不覆盖已有文件</span><span><AppIcon name="history" :size="15" />保留操作历史</span><span><AppIcon name="lock" :size="15" />无需上传文件</span></div>
   </div>
 </template>

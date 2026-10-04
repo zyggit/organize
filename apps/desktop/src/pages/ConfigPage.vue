@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useAppStore } from '../stores/app'
 import { pickDirectories } from '../api'
 import PageHeader from '../components/PageHeader.vue'
+import AppIcon from '../components/AppIcon.vue'
 
 const store = useAppStore()
 const validating = ref(false)
@@ -58,14 +59,14 @@ async function scan() {
         <section class="panel form-section">
           <div class="panel-title"><span>要整理的文件夹</span><button class="text-button" @click="addSource">＋ 添加文件夹</button></div>
           <div class="folder-row" v-for="(source, index) in store.profile.sourceFolders" :key="`${source}-${index}`">
-            <span class="folder-icon">▭</span><span class="folder-info"><b>{{ source.split('/').at(-1) || '文件夹' }}</b><small>{{ source }}</small></span><span class="check-ok">✓ 可以读取</span>
+            <span class="folder-icon"><AppIcon name="folder" /></span><span class="folder-info"><b>{{ source.split('/').at(-1) || '文件夹' }}</b><small :title="source">{{ source }}</small></span><span class="check-ok">✓ 可以读取</span>
             <button v-if="store.profile.sourceFolders.length > 1" @click="store.profile.sourceFolders.splice(index, 1)">×</button>
           </div>
           <label class="toggle-row"><span><b>包含子文件夹里的文件</b><small>关闭时只查看所选文件夹的第一层</small></span><input v-model="store.profile.includeSubfolders" type="checkbox" /></label>
         </section>
         <section v-if="!fixedTarget" class="panel form-section">
           <div class="panel-title"><span>整理到</span><button class="text-button" @click="changeTarget">更改</button></div>
-          <div class="folder-row"><span class="folder-icon target">▭</span><span class="folder-info"><b>整理</b><small>{{ store.profile.targetFolder }}</small></span><span class="check-ok">✓ 可以写入</span></div>
+          <div class="folder-row"><span class="folder-icon target"><AppIcon name="folder" /></span><span class="folder-info"><b>整理</b><small :title="store.profile.targetFolder">{{ store.profile.targetFolder }}</small></span><span class="check-ok">✓ 可以写入</span></div>
         </section>
         <section v-if="store.profile.presetType === 'by-type'" class="panel form-section">
           <div class="panel-title">要整理的类型</div>

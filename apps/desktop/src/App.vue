@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { darkTheme, NConfigProvider, NMessageProvider, type GlobalThemeOverrides } from 'naive-ui'
 import AppSidebar from './components/AppSidebar.vue'
 import FlowStepper from './components/FlowStepper.vue'
@@ -24,23 +24,31 @@ const pages = { onboarding: OnboardingPage, home: HomePage, config: ConfigPage, 
 const current = computed(() => pages[store.view as keyof typeof pages] ?? HomePage)
 const flowSteps: Partial<Record<ViewName, number>> = { config: 2, scan: 3, preview: 4, duplicates: 4, executing: 5, result: 6 }
 const flowStep = computed(() => flowSteps[store.view] ?? 0)
-const themeOverrides: GlobalThemeOverrides = { common: { primaryColor: '#4D8DFF', successColor: '#38D39F', warningColor: '#FF9147', errorColor: '#FF5D6E', bodyColor: '#0C1220', cardColor: '#121A2B', borderColor: '#23304C', textColor1: '#E8EDF7', textColor2: '#9AA8C3', textColor3: '#66759A', borderRadius: '6px' } }
+const themeOverrides: GlobalThemeOverrides = { common: { primaryColor: '#79E6DA', successColor: '#79E6BB', warningColor: '#FFC986', errorColor: '#FF9BAA', bodyColor: '#211940', cardColor: '#342950', borderColor: '#514565', textColor1: '#F6F3FF', textColor2: '#C5BDD9', textColor3: '#A99DBF', borderRadius: '12px' } }
+const backgrounded = ref(document.hidden)
+function updateVisibility() { backgrounded.value = document.hidden }
+document.addEventListener('visibilitychange', updateVisibility)
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', updateVisibility))
 onMounted(() => store.initialize())
 </script>
 
 <template>
-  <NConfigProvider :theme="darkTheme" :theme-overrides="themeOverrides">
+  <NConfigProvider class="app-provider" :theme="darkTheme" :theme-overrides="themeOverrides">
     <NMessageProvider>
-      <div class="window-shell">
-        <header class="titlebar"><div class="window-lights"><i /><i /><i /></div><strong>organize</strong><span><i :class="{ ready: store.engineReady }" />{{ store.engineReady ? '整理引擎已就绪' : '正在启动整理引擎' }}</span></header>
+      <div class="window-shell" :class="{ 'motion-paused': backgrounded }">
         <div class="app-body">
           <AppSidebar v-if="store.view !== 'onboarding'" />
           <main class="main-content">
             <FlowStepper v-if="flowStep" :step="flowStep" />
             <div v-if="store.error" class="global-error"><b>出现了问题</b><span>{{ store.error }}</span><button @click="store.error = undefined">×</button></div>
-            <component :is="current" />
+            <Transition name="view" mode="out-in">
+              <component :is="current" :key="store.view" />
+            </Transition>
           </main>
         </div>
+        <footer class="app-statusbar" role="status" aria-live="polite">
+          <span><i :class="{ ready: store.engineReady }" aria-hidden="true" />{{ store.engineReady ? '整理引擎已就绪' : '正在启动整理引擎' }}</span>
+        </footer>
       </div>
     </NMessageProvider>
   </NConfigProvider>

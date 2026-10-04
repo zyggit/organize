@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useAppStore } from '../stores/app'
 import { formatDate } from '../utils'
 import PageHeader from '../components/PageHeader.vue'
+import AppIcon from '../components/AppIcon.vue'
 
 const store = useAppStore()
 const activeId = ref<string>()
@@ -15,11 +16,11 @@ watch(() => active.value?.run_id, (runId) => { if (runId) void store.loadHistory
     <PageHeader title="整理历史" description="每次整理都记录了每个文件的去向。可以撤销的整理会标出来。">
       <div class="segments"><button class="active">全部</button><button>可撤销</button><button>部分成功</button><button>失败</button></div>
     </PageHeader>
-    <div v-if="!store.history.length" class="empty-state"><span>◷</span><h2>还没有整理记录</h2><p>整理完成后，每个文件的去向都会记录在这里。</p><button class="button primary" @click="store.go('home')">去首页选择方案</button></div>
+    <div v-if="!store.history.length" class="empty-state"><span><AppIcon name="history" :size="48" /></span><h2>还没有整理记录</h2><p>整理完成后，每个文件的去向都会记录在这里。</p><button class="button primary" @click="store.go('home')">去首页选择方案</button></div>
     <div v-else class="history-grid">
       <div class="history-list">
         <button v-for="run in store.history" :key="run.run_id" :class="{ active: active?.run_id === run.run_id }" @click="activeId = run.run_id">
-          <span class="history-icon">↓</span><span><b>{{ run.profile.name }}</b><small>{{ formatDate(run.started_at) }}，来源：{{ run.profile.sourceFolders[0] }}</small><em><i class="op-badge" :class="run.status === 'completed' ? 'ok' : 'warn'">{{ run.status === 'completed' ? '完成' : '部分成功' }}</i><i class="op-badge undo">可撤销</i></em></span><strong>{{ run.total }} 个文件</strong>
+          <span class="history-icon"><AppIcon name="folder" /></span><span><b>{{ run.profile.name }}</b><small>{{ formatDate(run.started_at) }}，来源：{{ run.profile.sourceFolders[0] }}</small><em><i class="op-badge" :class="run.status === 'completed' ? 'ok' : 'warn'">{{ run.status === 'completed' ? '完成' : '部分成功' }}</i><i class="op-badge undo">可撤销</i></em></span><strong>{{ run.total }} 个文件</strong>
         </button>
       </div>
       <section v-if="active" class="panel history-detail">

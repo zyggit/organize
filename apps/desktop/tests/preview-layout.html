@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8" /><title>预览列表布局回归测试</title></head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // npm run dev → /tests/preview-layout.html
+      // 独立的合成数据场景：长文本、重名、跳过及 2,000 行；不扫描真实文件。
+      import { createApp, h } from 'vue'
+      import { createPinia } from 'pinia'
+      import { NConfigProvider, darkTheme } from 'naive-ui'
+      import AppSidebar from '../src/components/AppSidebar.vue'
+      import FlowStepper from '../src/components/FlowStepper.vue'
+      import PreviewPage from '../src/pages/PreviewPage.vue'
+      import { useAppStore } from '../src/stores/app'
+      import '../src/style.css'
+      import '../src/theme.css'
+
+      const pinia = createPinia()
+      const store = useAppStore(pinia)
+      const items = Array.from({ length: 2000 }, (_, index) => {
+        const name = `${String(index + 1).padStart(4, '0')}-${'完整文件名与中文英文混合-'.repeat(12)}.pdf`
+        const skipped = index === 1999
+        return {
+          itemId: `fixture-${index}`, sequence: index,
+          operation: skipped ? 'skip' : 'move',
+          sourcePath: `/测试来源/${'很长的子目录/'.repeat(8)}${name}`,
+          targetPath: skipped ? null : `/测试目标/${'完整目标子目录/'.repeat(8)}新名称-${name}`,
+          size: 123456, selected: !skipped, status: skipped ? 'skipped' : 'planned',
+          warningCode: index === 0 ? 'TARGET_CONFLICT' : null,
+          reason: index === 0 ? '目标文件已存在，将使用新的名称且不会覆盖原文件。'.repeat(12) : skipped ? '该文件无法安全读取，已跳过。' : null,
+          metadata: {},
+        }
+      })
+      store.view = 'preview'
+      store.engineReady = true
+      store.plan = {
+        planId: 'layout-fixture', status: 'ready',
+        createdAt: new Date().toISOString(), expiresAt: new Date().toISOString(),
+        profile: store.profile, items,
+        summary: { total: items.length, selected: 1999, selectedBytes: 1999 * 123456, move: 1999, quarantine: 0, skip: 1, conflict: 1, groups: 0 },
+      }
+      createApp({
+        render: () => h(NConfigProvider, { class: 'app-provider', theme: darkTheme }, {
+          default: () => h('div', { class: 'window-shell' }, [
+            h('div', { class: 'app-body' }, [
+              h(AppSidebar),
+              h('main', { class: 'main-content' }, [h(FlowStepper, { step: 4 }), h(PreviewPage)]),
+            ]),
+            h('footer', { class: 'app-statusbar' }, '布局测试 · 合成数据'),
+          ]),
+        }),
+      }).use(pinia).mount('#app')
+    </script>
+  </body>
+</html>

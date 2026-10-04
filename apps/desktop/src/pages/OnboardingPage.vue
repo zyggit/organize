@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAppStore } from '../stores/app'
+import CareVisual from '../components/CareVisual.vue'
 
 const store = useAppStore()
 </script>
@@ -7,7 +8,7 @@ const store = useAppStore()
 <template>
   <div class="page onboarding-page">
     <section class="onboarding-hero">
-      <span class="brand-mark">↓</span>
+      <CareVisual />
       <h1>把杂乱文件夹整理好，也保留反悔的余地</h1>
       <p>organize 会先扫描并给出准确预览。只有你确认后才移动文件，清理项会进入隔离区。</p>
     </section>
@@ -20,4 +21,3 @@ const store = useAppStore()
     <button class="button primary onboarding-start" @click="store.completeOnboarding">开始使用 organize</button>
   </div>
 </template>
-
