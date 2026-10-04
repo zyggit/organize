@@ -118,6 +118,12 @@ venv.bak/
 # End of https://www.gitignore.io/api/visualstudiocode
 .idea
 
+# Desktop GUI
+node_modules/
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
 # Created by https://www.toptal.com/developers/gitignore/api/macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos
 

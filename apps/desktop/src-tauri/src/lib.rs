@@ -1,0 +1,215 @@
+use serde_json::{json, Value};
+use std::{
+    collections::HashMap,
+    env,
+    io::{BufRead, BufReader, Write},
+    path::PathBuf,
+    process::{Child, ChildStdin, Command, Stdio},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        mpsc, Arc, Mutex,
+    },
+    thread,
+    time::Duration,
+};
+use tauri::{AppHandle, Emitter, Manager, State};
+
+type EngineResponse = Result<Value, Value>;
+type Pending = Arc<Mutex<HashMap<String, mpsc::Sender<EngineResponse>>>>;
+
+struct EngineBridge {
+    child: Mutex<Child>,
+    input: Arc<Mutex<ChildStdin>>,
+    pending: Pending,
+    next_id: AtomicU64,
+}
+
+impl EngineBridge {
+    fn spawn(app: AppHandle) -> Result<Self, String> {
+        let mut command = engine_command()?;
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("无法启动整理引擎：{error}"))?;
+
+        let input = child.stdin.take().ok_or("无法连接整理引擎输入")?;
+        let output = child.stdout.take().ok_or("无法连接整理引擎输出")?;
+        let stderr = child.stderr.take().ok_or("无法连接整理引擎日志")?;
+        let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
+        let reader_pending = Arc::clone(&pending);
+
+        thread::Builder::new()
+            .name("organize-engine-output".into())
+            .spawn(move || {
+                for line in BufReader::new(output).lines() {
+                    let Ok(line) = line else { break };
+                    let Ok(message) = serde_json::from_str::<Value>(&line) else {
+                        eprintln!("invalid engine message: {line}");
+                        continue;
+                    };
+                    if message.get("event").is_some() {
+                        let _ = app.emit("engine-event", &message);
+                        continue;
+                    }
+                    let Some(id) = message.get("id").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    let sender = reader_pending
+                        .lock()
+                        .ok()
+                        .and_then(|mut map| map.remove(id));
+                    if let Some(sender) = sender {
+                        let response = match message.get("error") {
+                            Some(error) => Err(error.clone()),
+                            None => Ok(message.get("result").cloned().unwrap_or(Value::Null)),
+                        };
+                        let _ = sender.send(response);
+                    }
+                }
+                if let Ok(mut map) = reader_pending.lock() {
+                    let error = json!({"code":"ENGINE_CRASHED","message":"整理引擎已停止"});
+                    for (_, sender) in map.drain() {
+                        let _ = sender.send(Err(error.clone()));
+                    }
+                }
+            })
+            .map_err(|error| error.to_string())?;
+
+        thread::Builder::new()
+            .name("organize-engine-log".into())
+            .spawn(move || {
+                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                    eprintln!("[organize-engine] {line}");
+                }
+            })
+            .map_err(|error| error.to_string())?;
+
+        Ok(Self {
+            child: Mutex::new(child),
+            input: Arc::new(Mutex::new(input)),
+            pending,
+            next_id: AtomicU64::new(1),
+        })
+    }
+}
+
+impl Drop for EngineBridge {
+    fn drop(&mut self) {
+        if let Ok(mut child) = self.child.lock() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+fn engine_command() -> Result<Command, String> {
+    if let Ok(binary) = env::var("ORGANIZE_GUI_ENGINE") {
+        return Ok(Command::new(binary));
+    }
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let source = manifest.join("../../../engine/src");
+    let source = source
+        .canonicalize()
+        .map_err(|error| format!("找不到 Python 引擎：{error}"))?;
+    let python = env::var("ORGANIZE_GUI_PYTHON").unwrap_or_else(|_| "python3".into());
+    let mut command = Command::new(python);
+    command.arg("-m").arg("organize_gui.rpc_server");
+    let mut paths = vec![source];
+    if let Some(existing) = env::var_os("PYTHONPATH") {
+        paths.extend(env::split_paths(&existing));
+    }
+    command.env(
+        "PYTHONPATH",
+        env::join_paths(paths).map_err(|error| error.to_string())?,
+    );
+    Ok(command)
+}
+
+#[tauri::command]
+async fn engine_request(
+    bridge: State<'_, EngineBridge>,
+    method: String,
+    params: Value,
+) -> EngineResponse {
+    let input = Arc::clone(&bridge.input);
+    let pending = Arc::clone(&bridge.pending);
+    let next_id = bridge.next_id.fetch_add(1, Ordering::Relaxed).to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        request_with_parts(input, pending, next_id, method, params)
+    })
+    .await
+    .unwrap_or_else(|error| Err(json!({"code":"ENGINE_BRIDGE_FAILED","message":error.to_string()})))
+}
+
+fn request_with_parts(
+    input: Arc<Mutex<ChildStdin>>,
+    pending: Pending,
+    id: String,
+    method: String,
+    params: Value,
+) -> EngineResponse {
+    let message = json!({"id": id, "method": method, "params": params});
+    let (sender, receiver) = mpsc::channel();
+    pending
+        .lock()
+        .map_err(|_| json!({"code":"ENGINE_LOCKED","message":"整理引擎响应队列不可用"}))?
+        .insert(id.clone(), sender);
+    let result = input
+        .lock()
+        .map_err(|_| json!({"code":"ENGINE_LOCKED","message":"整理引擎输入不可用"}))
+        .and_then(|mut writer| {
+            writeln!(writer, "{}", message)
+                .and_then(|_| writer.flush())
+                .map_err(|error| json!({"code":"ENGINE_CRASHED","message":error.to_string()}))
+        });
+    if let Err(error) = result {
+        if let Ok(mut map) = pending.lock() {
+            map.remove(&id);
+        }
+        return Err(json!({"code":"ENGINE_CRASHED","message":error.to_string()}));
+    }
+    receiver
+        .recv_timeout(Duration::from_secs(30 * 60))
+        .unwrap_or_else(|_| {
+            if let Ok(mut map) = pending.lock() {
+                map.remove(&id);
+            }
+            Err(json!({"code":"ENGINE_TIMEOUT","message":"整理引擎响应超时"}))
+        })
+}
+
+#[tauri::command]
+fn reveal_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut value = Command::new("explorer");
+        value.arg("/select,");
+        value
+    };
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let mut command = Command::new("xdg-open");
+    command
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("无法打开位置：{error}"))
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let bridge =
+                EngineBridge::spawn(app.handle().clone()).map_err(std::io::Error::other)?;
+            app.manage(bridge);
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![engine_request, reveal_path])
+        .run(tauri::generate_context!())
+        .expect("error while running organize");
+}

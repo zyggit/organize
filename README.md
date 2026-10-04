@@ -20,6 +20,35 @@
 <a href="https://organize.readthedocs.io/" target="_blank">Full documentation at Read the docs</a>
 </p>
 
+## Desktop GUI MVP
+
+This repository also contains the first deliverable of a safety-first desktop
+GUI in [`apps/desktop`](apps/desktop). It implements the user flow “preset →
+configure → scan → preview → execute → result”, plus history, undo and a
+quarantine area. The desktop shell is Tauri 2, the UI is Vue 3/TypeScript, and
+the local Python engine communicates over NDJSON.
+
+Run the browser demo:
+
+```bash
+cd apps/desktop
+npm install
+npm run dev
+```
+
+Run the desktop application (requires Rust):
+
+```bash
+cd apps/desktop
+npm run tauri dev
+```
+
+Run the engine tests:
+
+```bash
+python3 -m unittest discover -s engine/tests -v
+```
+
 
 ## v3 is now available
 
