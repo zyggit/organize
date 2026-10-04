@@ -1,0 +1,1567 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>organize GUI · MVP 设计稿 v1（交互原型）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ Design tokens ============ */
+:root{
+  --font-ui:"Geist","PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  --font-path:"Geist Mono","SF Mono","Cascadia Mono",Consolas,"PingFang SC",monospace;
+  --r-ctl:6px; --r-panel:10px; --r-win:14px;
+  --t-fast:120ms; --t-mid:200ms;
+}
+[data-theme="dark"]{
+  --bg:#0C1220; --grid:rgba(120,150,210,.055);
+  --surface:#121A2B; --surface-2:#172136; --surface-3:#1E2A44;
+  --line:#23304C; --line-strong:#33446A;
+  --text:#E8EDF7; --text-2:#9AA8C3; --text-3:#66759A;
+  --primary:#4D8DFF; --primary-hover:#6FA3FF; --primary-weak:rgba(77,141,255,.14); --on-primary:#fff;
+  --move:#4D8DFF; --quar:#F0B54A; --skip:#7D8BA8; --warn:#FF9147; --fail:#FF5D6E; --ok:#38D39F; --undo:#A88BFF;
+  --shadow-pop:0 18px 48px rgba(0,0,0,.45),0 0 0 1px var(--line-strong);
+  --outer:#070B14;
+}
+[data-theme="light"]{
+  --bg:#F3F6FB; --grid:rgba(40,70,140,.05);
+  --surface:#FFFFFF; --surface-2:#F7F9FD; --surface-3:#EDF1F8;
+  --line:#DFE5F0; --line-strong:#C9D2E3;
+  --text:#101828; --text-2:#4B5872; --text-3:#8A96AD;
+  --primary:#2F6BFF; --primary-hover:#1F57E6; --primary-weak:rgba(47,107,255,.10); --on-primary:#fff;
+  --move:#2F6BFF; --quar:#B9790A; --skip:#6B7891; --warn:#D9620F; --fail:#E5384D; --ok:#12996B; --undo:#7454F0;
+  --shadow-pop:0 18px 48px rgba(20,30,60,.18),0 0 0 1px var(--line-strong);
+  --outer:#D9DFEA;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font-ui);font-size:13px;line-height:1.5;color:var(--text);background:var(--outer);min-width:1320px;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.path{font-family:var(--font-path);font-size:12px;color:var(--text-2);word-break:break-all}
+.muted{color:var(--text-2)} .faint{color:var(--text-3)}
+svg.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.sm{width:14px;height:14px} svg.i.lg{width:22px;height:22px}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:var(--r-ctl)}
+
+/* ============ Prototype chrome (not product UI) ============ */
+.proto{position:sticky;top:0;z-index:100;background:#1b1f2a;color:#cdd3e0;padding:8px 20px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;border-bottom:1px solid #2b3142}
+.proto b{color:#fff;margin-right:8px;font-weight:600}
+.proto button{padding:3px 9px;border-radius:5px;background:#2a3040;color:#cdd3e0}
+.proto button:hover{background:#39415a}
+.proto button.on{background:#4D8DFF;color:#fff}
+.proto .sep{width:1px;height:18px;background:#3a4155;margin:0 6px}
+.stage{display:flex;justify-content:center;padding:28px 20px 48px}
+
+/* ============ Window ============ */
+.window{width:1280px;height:820px;border-radius:var(--r-win);overflow:hidden;background:var(--bg);box-shadow:0 30px 80px rgba(0,0,0,.35),0 0 0 1px var(--line-strong);display:flex;flex-direction:column;position:relative}
+.titlebar{height:38px;flex:none;display:flex;align-items:center;padding:0 14px;gap:8px;border-bottom:1px solid var(--line);background:var(--surface);-webkit-user-select:none;user-select:none}
+.lights{display:flex;gap:8px;margin-right:12px}.lights i{width:12px;height:12px;border-radius:50%;background:#FF5F57}.lights i:nth-child(2){background:#FEBC2E}.lights i:nth-child(3){background:#28C840}
+.titlebar .name{font-weight:600;letter-spacing:.2px}
+.titlebar .right{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 20%,transparent)}
+.app{flex:1;display:flex;min-height:0}
+
+/* ============ Sidebar ============ */
+.sidebar{width:212px;flex:none;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-ctl);color:var(--text-2);cursor:pointer;font-weight:500;position:relative;margin-bottom:2px}
+.nav a:hover{background:var(--surface-3);color:var(--text)}
+.nav a.on{background:var(--primary-weak);color:var(--text)}
+.nav a.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--primary)}
+.nav a .count{margin-left:auto;font-size:11px;color:var(--text-3)}
+.nav a .count.alert{color:var(--quar)}
+.task-pill{margin:6px 0 10px;padding:8px 10px;border-radius:var(--r-ctl);border:1px dashed var(--line-strong);color:var(--text-2);font-size:12px;display:none;cursor:pointer}
+.task-pill b{color:var(--text);font-weight:500;display:block}
+.sidebar.in-flow .task-pill{display:block}
+.sidebar.locked .nav a{opacity:.4;pointer-events:none}
+.guard{margin-top:auto;border:1px solid var(--line);border-radius:var(--r-panel);padding:12px;background:var(--surface-2)}
+.guard h4{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.guard h4 svg{color:var(--ok)}
+.guard .g-row{display:flex;justify-content:space-between;padding:5px 0;color:var(--text-2);font-size:12px;cursor:pointer;border-top:1px solid var(--line)}
+.guard .g-row:hover{color:var(--text)}
+.guard .g-row b{color:var(--text);font-weight:500}
+
+/* ============ Main & views ============ */
+.main{flex:1;min-width:0;position:relative;display:flex;flex-direction:column;background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:18px 18px}
+.flowhead{flex:none;display:none;align-items:center;gap:6px;padding:10px 24px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--surface) 70%,transparent);backdrop-filter:blur(6px)}
+.main.flow .flowhead{display:flex}
+.step{display:flex;align-items:center;gap:7px;color:var(--text-3);font-size:12px;font-weight:500}
+.step .n{width:20px;height:20px;border-radius:50%;border:1px solid var(--line-strong);display:grid;place-items:center;font-size:11px}
+.step.done{color:var(--text-2)} .step.done .n{background:var(--surface-3);border-color:var(--surface-3);color:var(--ok)}
+.step.cur{color:var(--text)} .step.cur .n{background:var(--primary);border-color:var(--primary);color:var(--on-primary);box-shadow:0 0 0 4px var(--primary-weak)}
+.step-line{width:28px;height:1px;background:var(--line-strong)}
+.step-line.done{background:var(--ok)}
+.flowhead .safe{margin-left:auto;font-size:12px;color:var(--text-2);display:flex;gap:6px;align-items:center}
+.flowhead .safe svg{color:var(--ok)}
+
+.views{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:none;flex-direction:column}
+.view.on{display:flex}
+.vhead{flex:none;padding:22px 28px 14px;display:flex;align-items:flex-end;gap:16px}
+.vhead h1{font-size:22px;font-weight:600;letter-spacing:-.2px;line-height:1.25}
+.vhead p{color:var(--text-2);margin-top:4px}
+.vhead .tools{margin-left:auto;display:flex;gap:8px;align-items:center}
+.vbody{flex:1;overflow:auto;padding:4px 28px 24px;min-height:0}
+.vfoot{flex:none;display:flex;align-items:center;gap:10px;padding:12px 28px;border-top:1px solid var(--line);background:var(--surface)}
+.vfoot .sum{flex:1;color:var(--text-2);font-size:12px;text-align:right;padding-right:8px}
+.vfoot .sum b{color:var(--text);font-weight:600}
+
+/* ============ Controls ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 14px;border-radius:var(--r-ctl);font-weight:500;white-space:nowrap;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast)}
+.btn-lg{height:38px;padding:0 20px;font-size:14px}
+.btn-sm{height:26px;padding:0 10px;font-size:12px}
+.btn-primary{background:var(--primary);color:var(--on-primary);box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 60%,#fff 0%),0 6px 18px var(--primary-weak)}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:disabled{background:var(--surface-3);color:var(--text-3);box-shadow:none;cursor:not-allowed}
+.btn-secondary{border:1px solid var(--line-strong);background:var(--surface-2)}
+.btn-secondary:hover{border-color:var(--text-3);background:var(--surface-3)}
+.btn-ghost{color:var(--text-2)} .btn-ghost:hover{color:var(--text);background:var(--surface-3)}
+.btn-undo{border:1px solid color-mix(in srgb,var(--undo) 55%,transparent);color:var(--undo);background:color-mix(in srgb,var(--undo) 10%,transparent)}
+.btn-undo:hover{background:color-mix(in srgb,var(--undo) 18%,transparent)}
+.btn-undo-solid{background:var(--undo);color:#fff}
+.btn-undo-solid:hover{filter:brightness(1.08)}
+.btn-danger{border:1px solid color-mix(in srgb,var(--fail) 55%,transparent);color:var(--fail)}
+.btn-danger:hover{background:color-mix(in srgb,var(--fail) 12%,transparent)}
+.btn-danger-solid{background:var(--fail);color:#fff}
+
+.badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:4px;font-size:11px;font-weight:500;white-space:nowrap;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.c-move{--c:var(--move)} .c-quar{--c:var(--quar)} .c-skip{--c:var(--skip)} .c-warn{--c:var(--warn)} .c-fail{--c:var(--fail)} .c-ok{--c:var(--ok)} .c-undo{--c:var(--undo)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel)}
+.panel-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600}
+.panel-h .r{margin-left:auto;font-weight:400}
+.panel-b{padding:14px 16px}
+
+.switch{width:34px;height:20px;border-radius:10px;background:var(--surface-3);border:1px solid var(--line-strong);position:relative;flex:none;transition:background var(--t-fast)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-2);transition:transform var(--t-mid),background var(--t-fast)}
+.switch.on{background:var(--primary);border-color:var(--primary)} .switch.on::after{transform:translateX(14px);background:#fff}
+
+.seg{display:inline-flex;padding:2px;border-radius:var(--r-ctl);background:var(--surface-3);border:1px solid var(--line)}
+.seg button{height:26px;padding:0 12px;border-radius:4px;color:var(--text-2);font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 0 var(--line-strong)}
+.seg button .k{font-size:11px;color:var(--text-3)}
+
+.chk{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--line-strong);display:grid;place-items:center;flex:none;cursor:pointer;background:var(--surface)}
+.chk.on{background:var(--primary);border-color:var(--primary)}
+.chk.on::after{content:"";width:8px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.chk.mixed{background:var(--primary);border-color:var(--primary)} .chk.mixed::after{content:"";width:8px;height:2px;background:#fff}
+.chk.dis{opacity:.35;cursor:not-allowed}
+.radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-strong);flex:none;cursor:pointer;display:grid;place-items:center}
+.radio.on{border-color:var(--ok)} .radio.on::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok)}
+
+.search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:var(--r-ctl);border:1px solid var(--line-strong);background:var(--surface);width:240px;color:var(--text-3)}
+.search input{border:0;outline:0;background:none;flex:1;min-width:0;color:var(--text)}
+
+.banner{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:var(--r-panel);border:1px solid color-mix(in srgb,var(--c) 40%,transparent);background:color-mix(in srgb,var(--c) 9%,transparent);color:var(--text)}
+.banner>svg{color:var(--c);margin-top:1px}
+.banner .t{flex:1}
+.banner .t b{font-weight:600}
+.banner .t span{color:var(--text-2)}
+
+.toast{position:absolute;left:50%;bottom:76px;transform:translateX(-50%) translateY(10px);opacity:0;pointer-events:none;background:var(--surface-3);border:1px solid var(--line-strong);padding:10px 16px;border-radius:var(--r-panel);display:flex;gap:8px;align-items:center;box-shadow:var(--shadow-pop);transition:opacity var(--t-mid),transform var(--t-mid);z-index:60}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.toast svg{color:var(--ok)}
+
+/* ============ Modal ============ */
+.scrim{position:absolute;inset:38px 0 0 0;background:rgba(5,9,18,.55);display:none;align-items:center;justify-content:center;z-index:50}
+[data-theme="light"] .scrim{background:rgba(30,40,70,.28)}
+.scrim.on{display:flex}
+.modal{width:460px;background:var(--surface);border-radius:12px;box-shadow:var(--shadow-pop);display:none;flex-direction:column}
+.modal.on{display:flex}
+.modal .mh{padding:20px 22px 6px;display:flex;gap:12px;align-items:flex-start}
+.modal .mh .ic{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c)}
+.modal h3{font-size:16px;font-weight:600;line-height:1.35}
+.modal .mh p{color:var(--text-2);margin-top:4px}
+.modal .mb{padding:10px 22px 4px 70px}
+.modal .mb li{list-style:none;display:flex;gap:8px;padding:5px 0;color:var(--text-2)}
+.modal .mb li svg{margin-top:1px}
+.modal .mb li b{color:var(--text);font-weight:500}
+.modal .mf{display:flex;justify-content:flex-end;gap:8px;padding:16px 22px 18px}
+
+/* ============ Onboarding ============ */
+.onb{position:absolute;inset:38px 0 0 0;background:var(--bg);z-index:40;display:none;flex-direction:column;align-items:center;background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:18px 18px}
+.onb.on{display:flex}
+.onb-dots{display:flex;gap:6px;margin-top:28px}
+.onb-dots i{width:22px;height:3px;border-radius:2px;background:var(--line-strong)}
+.onb-dots i.on{background:var(--primary)}
+.onb-page{display:none;flex-direction:column;align-items:center;width:760px;margin-top:56px;text-align:center}
+.onb-page.on{display:flex}
+.onb h1{font-size:30px;font-weight:600;letter-spacing:-.4px;line-height:1.25}
+.onb .lead{color:var(--text-2);font-size:14px;margin-top:10px;max-width:520px}
+.promise{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;margin:44px 0 40px;width:100%}
+.promise .p{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-panel);padding:18px 16px;text-align:left}
+.promise .p .k{font-size:12px;color:var(--text-3);font-weight:500}
+.promise .p h3{font-size:16px;font-weight:600;margin:6px 0 4px;display:flex;gap:8px;align-items:center}
+.promise .p p{color:var(--text-2);font-size:12px}
+.promise .ar{color:var(--text-3);display:grid;place-items:center}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%;margin:36px 0}
+.tile{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-panel);padding:18px 14px;text-align:left;cursor:pointer;position:relative}
+.tile:hover{border-color:var(--line-strong)}
+.tile.on{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-weak)}
+.tile .chk{position:absolute;top:12px;right:12px}
+.tile svg.i{color:var(--primary)}
+.tile h4{font-size:14px;font-weight:600;margin-top:12px}
+.tile.add{border-style:dashed;color:var(--text-2)} .tile.add svg.i{color:var(--text-2)}
+
+/* ============ Home ============ */
+.home-grid{display:grid;grid-template-columns:1fr 316px;gap:20px;align-items:start}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.preset{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);padding:18px 18px 14px;cursor:pointer;display:flex;flex-direction:column;gap:12px;text-align:left;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.preset:hover{border-color:color-mix(in srgb,var(--c) 60%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 12%,transparent)}
+.preset .top{display:flex;gap:12px;align-items:flex-start}
+.preset .ico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c);flex:none}
+.preset h3{font-size:15px;font-weight:600}
+.preset p{color:var(--text-2);font-size:12px;margin-top:2px}
+.flowviz{display:flex;align-items:center;gap:6px;padding:10px 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);flex-wrap:wrap;min-height:46px}
+.flowviz .f{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border-radius:5px;background:var(--surface-3);font-size:12px;color:var(--text)}
+.flowviz .f svg{color:var(--text-3)}
+.flowviz .f.tg{background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.flowviz .f.tg svg{color:inherit}
+.flowviz .ar{color:var(--text-3)}
+.preset .foot{display:flex;align-items:center;justify-content:space-between}
+.preset .go{color:var(--text-3);display:flex;align-items:center;gap:4px;font-size:12px}
+.preset:hover .go{color:var(--text)}
+.side-col{display:flex;flex-direction:column;gap:14px}
+.lastrun .big{font-size:24px;font-weight:600;letter-spacing:-.3px}
+.recent-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer}
+.recent-row:first-child{border-top:0}
+.recent-row:hover{background:var(--surface-2)}
+.recent-row .meta{flex:1;min-width:0}
+.recent-row .meta b{font-weight:500;display:block}
+.recent-row .meta span{color:var(--text-3);font-size:12px}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.section-t{font-size:13px;font-weight:600;color:var(--text-2);margin:24px 0 10px}
+
+/* ============ Config ============ */
+.cfg-grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+.cfg-block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);margin-bottom:14px}
+.cfg-block .bh{display:flex;align-items:center;padding:14px 16px 10px}
+.cfg-block .bh h3{font-size:14px;font-weight:600}
+.cfg-block .bh p{color:var(--text-3);font-size:12px;margin-left:10px}
+.cfg-block .bh .r{margin-left:auto}
+.cfg-block .bb{padding:0 16px 14px}
+.folder{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);margin-bottom:8px}
+.folder>svg{color:var(--primary)}
+.folder .fm{flex:1;min-width:0}
+.folder .fm b{font-weight:500;display:block}
+.folder .st{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ok)}
+.folder.err{border-color:color-mix(in srgb,var(--fail) 50%,transparent)}
+.folder.err .st{color:var(--fail)}
+.inline-err{display:flex;gap:8px;padding:8px 10px;margin:-2px 0 8px;border-radius:6px;background:color-mix(in srgb,var(--fail) 10%,transparent);color:var(--text);font-size:12px}
+.inline-err svg{color:var(--fail)}
+.inline-err span{color:var(--text-2)}
+.opt-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.opt-row .ol{flex:1}
+.opt-row .ol b{font-weight:500;display:block}
+.opt-row .ol span{color:var(--text-3);font-size:12px}
+.cats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.cat{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:var(--surface-2)}
+.cat.on{border-color:color-mix(in srgb,var(--primary) 55%,transparent);background:var(--primary-weak)}
+.cat .cm{flex:1;min-width:0}
+.cat .cm b{font-weight:500;display:block}
+.cat .cm span{color:var(--text-3);font-size:11px}
+.cat svg.i{color:var(--text-2)}
+.days{display:flex;gap:8px;align-items:center}
+.tree{font-size:12px}
+.tree .tn{display:flex;align-items:center;gap:6px;padding:4px 0}
+.tree .tn svg{color:var(--primary)}
+.tree .tn .ext{margin-left:auto;color:var(--text-3);font-size:11px}
+.tree .ind1{padding-left:18px} .tree .ind2{padding-left:36px}
+.tree .tn.off{opacity:.35;text-decoration:line-through}
+.skiplist li{list-style:none;display:flex;gap:8px;color:var(--text-2);font-size:12px;padding:3px 0}
+.skiplist li svg{color:var(--skip)}
+.note{display:flex;gap:8px;align-items:flex-start;color:var(--text-2);font-size:12px;padding:12px 16px;border-top:1px solid var(--line)}
+.note svg{color:var(--ok)}
+
+/* ============ Scan ============ */
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.matrix{display:grid;grid-template-columns:repeat(32,10px);gap:5px;margin-bottom:34px;position:relative}
+.matrix i{width:10px;height:10px;border-radius:2px;background:var(--surface-3)}
+.matrix i.lit{background:var(--primary);box-shadow:0 0 8px var(--primary)}
+.matrix i.seen{background:color-mix(in srgb,var(--primary) 35%,var(--surface-3))}
+.matrix i.hit{background:var(--quar)}
+.scan-title{font-size:13px;color:var(--text-2);font-weight:500}
+.scan-big{font-size:44px;font-weight:600;letter-spacing:-1px;margin:4px 0 6px}
+.scan-big small{font-size:16px;color:var(--text-2);font-weight:500;letter-spacing:0;margin-left:6px}
+.scan-cur{max-width:560px;text-align:center}
+.phases{display:flex;gap:10px;margin-top:26px}
+.phase{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text-3);font-size:12px}
+.phase .pd{width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.phase.done{color:var(--text-2)} .phase.done .pd{background:var(--ok)}
+.phase.cur{color:var(--text);border-color:var(--primary)} .phase.cur .pd{background:var(--primary);box-shadow:0 0 0 3px var(--primary-weak)}
+.calm{margin-top:28px;color:var(--text-3);font-size:12px;display:flex;gap:6px;align-items:center}
+.calm svg{color:var(--ok)}
+
+/* ============ Preview ============ */
+.summary{display:grid;grid-template-columns:auto 1fr;gap:28px;padding:16px 18px;align-items:center}
+.summary .hero b{font-size:28px;font-weight:600;letter-spacing:-.5px;display:block;line-height:1.1}
+.summary .hero span{color:var(--text-2);font-size:12px}
+.planbar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--surface-3);gap:2px}
+.planbar i{background:var(--c);display:block}
+.legend{display:flex;gap:22px;margin-top:10px;flex-wrap:wrap}
+.legend .lg{display:flex;flex-direction:column;cursor:default}
+.legend .lg .lk{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px}
+.legend .lg .lk i{width:8px;height:8px;border-radius:2px;background:var(--c)}
+.legend .lg b{font-size:16px;font-weight:600;margin-top:2px}
+.legend .lg b small{font-size:11px;color:var(--text-3);font-weight:400;margin-left:4px}
+.ptools{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
+.ptools .r{margin-left:auto;display:flex;align-items:center;gap:12px;color:var(--text-2);font-size:12px}
+.ptools .r label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.tbl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);overflow:hidden}
+.tr{display:grid;grid-template-columns:40px minmax(200px,1.15fr) minmax(260px,1.6fr) 76px 76px minmax(170px,1fr);align-items:center;min-height:42px;border-top:1px solid var(--line);padding-right:12px}
+.tr.th{min-height:34px;border-top:0;background:var(--surface-2);color:var(--text-3);font-size:12px;font-weight:500;position:sticky;top:0;z-index:2}
+.tr>div{padding:6px 8px;min-width:0}
+.tr>div:first-child{display:flex;justify-content:center;padding:0}
+.tr.grp{background:var(--surface-2);min-height:38px;cursor:pointer}
+.tr.grp .gname{display:flex;align-items:center;gap:8px;font-weight:600}
+.tr.grp .gname .faint{font-weight:400}
+.tr.row:hover{background:color-mix(in srgb,var(--primary) 4%,transparent)}
+.tr.row.ex{opacity:.45}
+.tr.row.ex .fname{text-decoration:line-through}
+.fname{display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fname svg{color:var(--text-3)}
+.fname span{overflow:hidden;text-overflow:ellipsis}
+.pchg{display:flex;align-items:center;gap:6px;cursor:pointer;flex-wrap:wrap}
+.pchg .from,.pchg .to{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:4px;font-size:12px;background:var(--surface-3);white-space:nowrap}
+.pchg .to{background:color-mix(in srgb,var(--c,var(--move)) 13%,transparent);color:var(--c,var(--move))}
+.pchg .ar{color:var(--text-3)}
+.pfull{display:none;width:100%;margin-top:4px;line-height:1.6}
+.pchg.open .pfull{display:block}
+.stx{font-size:12px;color:var(--text-2)}
+.stx.warn{color:var(--warn)}
+.more{padding:9px 16px 9px 48px;color:var(--text-3);font-size:12px;border-top:1px solid var(--line)}
+.right{text-align:right}
+
+/* duplicates */
+.dgroup{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);margin-bottom:12px}
+.dgroup.need{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.dgh{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line)}
+.dgh b{font-weight:600}
+.dgh .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.fname .badge{flex:none}
+.dfile{display:grid;grid-template-columns:32px 1.5fr 1fr 110px 120px;align-items:center;gap:8px;padding:9px 16px;border-top:1px solid var(--line)}
+.dfile:first-of-type{border-top:0}
+.dfile.keep{background:color-mix(in srgb,var(--ok) 6%,transparent)}
+
+/* ============ Exec ============ */
+.exec-wrap{width:640px}
+.prog-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.prog-top h2{font-size:22px;font-weight:600}
+.prog-top .pct{font-size:36px;font-weight:600;letter-spacing:-1px}
+.prog{height:10px;border-radius:5px;background:var(--surface-3);overflow:hidden;position:relative}
+.prog i{position:absolute;inset:0 auto 0 0;background:var(--primary);border-radius:5px;transition:width .25s linear;overflow:hidden}
+.prog i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);animation:shine 1.6s linear infinite}
+.prog.stopping i{background:var(--warn)}
+@keyframes shine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.prog-meta{display:flex;justify-content:space-between;color:var(--text-2);font-size:12px;margin-top:8px}
+.curfile{margin-top:26px;padding:14px 16px;display:flex;gap:12px;align-items:center}
+.curfile .ico{width:36px;height:36px;border-radius:8px;background:var(--surface-3);display:grid;place-items:center;color:var(--text-2);flex:none}
+.curfile .cm{flex:1;min-width:0}
+.curfile .cm b{font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subprog{height:4px;border-radius:2px;background:var(--surface-3);margin-top:8px;overflow:hidden}
+.subprog i{display:block;height:100%;background:var(--text-2);width:0}
+.counters{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.counter{padding:12px 16px}
+.counter .lk{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px}
+.counter .lk i{width:8px;height:8px;border-radius:2px;background:var(--c)}
+.counter b{font-size:22px;font-weight:600;display:block;margin-top:2px}
+.stopnote{margin-top:16px;display:none}
+.stopnote.on{display:flex}
+
+/* ============ Result ============ */
+.res-hero{display:flex;gap:16px;align-items:center;padding:6px 0 20px}
+.res-hero .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c)}
+.res-hero h1{font-size:22px;font-weight:600}
+.res-hero p{color:var(--text-2);margin-top:2px}
+.res-stats{display:grid;grid-template-columns:repeat(5,1fr);margin-bottom:16px}
+.res-stats>div{padding:14px 18px;border-left:1px solid var(--line)}
+.res-stats>div:first-child{border-left:0}
+.res-stats .lk{color:var(--text-2);font-size:12px;display:flex;gap:6px;align-items:center}
+.res-stats .lk i{width:8px;height:8px;border-radius:2px;background:var(--c)}
+.res-stats b{font-size:20px;font-weight:600;display:block;margin-top:2px}
+.res-grid{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
+.fail-row{display:grid;grid-template-columns:1fr 1.2fr;gap:12px;padding:11px 16px;border-top:1px solid var(--line)}
+.fail-row:first-child{border-top:0}
+.fail-row b{font-weight:500;display:block}
+.fail-row .why{color:var(--fail);font-size:12px}
+.fail-row .fix{color:var(--text-2);font-size:12px}
+.undo-card{border-color:color-mix(in srgb,var(--undo) 40%,var(--line))}
+.undo-card .panel-h svg{color:var(--undo)}
+
+/* ============ History ============ */
+.split{display:grid;grid-template-columns:380px 1fr;gap:16px;height:100%;min-height:0}
+.hlist{overflow:auto}
+.hitem{display:flex;gap:12px;padding:12px 14px;border-radius:var(--r-panel);border:1px solid transparent;cursor:pointer;margin-bottom:4px}
+.hitem:hover{background:var(--surface)}
+.hitem.on{background:var(--surface);border-color:var(--line-strong)}
+.hitem .ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--surface-3);color:var(--text-2);flex:none}
+.hitem .hm{flex:1;min-width:0}
+.hitem .hm b{font-weight:500}
+.hitem .hm .sub{color:var(--text-3);font-size:12px;margin-top:1px}
+.hitem .hm .tags{display:flex;gap:6px;margin-top:6px}
+.hitem .n{font-size:12px;color:var(--text-2);text-align:right;white-space:nowrap}
+.hdetail{overflow:auto;display:flex;flex-direction:column}
+.snap{display:grid;grid-template-columns:90px 1fr;gap:6px 12px;font-size:12px;padding:14px 16px}
+.snap dt{color:var(--text-3)}
+.tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--line)}
+.tabs button{padding:10px 10px;color:var(--text-2);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;font-size:12px}
+.tabs button.on{color:var(--text);border-color:var(--primary)}
+.oprow{display:grid;grid-template-columns:1fr 1.7fr 80px;gap:10px;padding:9px 16px;border-top:1px solid var(--line);align-items:center}
+.oprow:first-child{border-top:0}
+
+/* ============ Quarantine ============ */
+.qstats{display:flex;gap:28px;align-items:center;padding:14px 18px}
+.qstats .qs b{font-size:22px;font-weight:600;display:block;line-height:1.2}
+.qstats .qs span{color:var(--text-2);font-size:12px}
+.qstats .loc{margin-left:auto;display:flex;align-items:center;gap:10px;text-align:right}
+.qr{display:grid;grid-template-columns:40px minmax(190px,1.2fr) minmax(150px,1fr) minmax(170px,1.1fr) 82px 76px 108px;align-items:center;min-height:44px;border-top:1px solid var(--line);padding-right:12px}
+.qr.th{min-height:34px;border-top:0;background:var(--surface-2);color:var(--text-3);font-size:12px;font-weight:500}
+.qr>div{padding:6px 8px;min-width:0}
+.qr>div:first-child{display:flex;justify-content:center;padding:0}
+.qr.row:hover{background:color-mix(in srgb,var(--primary) 4%,transparent)}
+.qr.row.sel{background:var(--primary-weak)}
+.selbar{display:none;align-items:center;gap:8px;padding:12px 28px;border-top:1px solid var(--line);background:var(--surface)}
+.selbar.on{display:flex}
+.selbar .sum{flex:1;color:var(--text-2);font-size:12px}
+.selbar .sum b{color:var(--text)}
+
+/* ============ Settings ============ */
+.set-wrap{max-width:760px}
+.set-sec{margin-bottom:18px}
+.set-sec h2{font-size:13px;font-weight:600;color:var(--text-2);margin:0 0 8px 2px}
+.set-row{display:flex;align-items:center;gap:16px;padding:13px 16px;border-top:1px solid var(--line)}
+.set-row:first-child{border-top:0}
+.set-row .sl{flex:1}
+.set-row .sl b{font-weight:500;display:block}
+.set-row .sl span{color:var(--text-3);font-size:12px}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line-strong);border-radius:var(--r-ctl);height:30px}
+.stepper button{width:28px;height:100%;color:var(--text-2)}
+.stepper span{min-width:58px;text-align:center;font-size:12px}
+.about-hero{display:flex;gap:16px;align-items:center;padding:20px}
+.logo{width:56px;height:56px;border-radius:14px;background:linear-gradient(140deg,var(--primary),color-mix(in srgb,var(--primary) 40%,var(--undo)));display:grid;place-items:center;color:#fff}
+.logo svg{width:28px;height:28px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M9 11h6M9 14h6"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="M12 3 3 7.5v9L12 21l9-4.5v-9z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h0"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevr" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-5L4 8M4 4v4h4M4 13a8 8 0 0 0 14 5l2-2M20 20v-4h-4"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><path d="M4 6h6l4 6-4 6H4"/><path d="M14 12h6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+  </defs>
+</svg>
+
+<!-- 原型导航：仅用于设计评审，不属于产品界面 -->
+<div class="proto" id="proto">
+  <b>设计稿导航（评审用，非产品界面）</b>
+  <button data-go="onboarding">首次启动</button>
+  <button data-go="home">首页</button>
+  <button data-go="config" data-preset="A">配置·按类型</button>
+  <button data-go="config" data-preset="B">配置·按日期</button>
+  <button data-go="config" data-preset="C">配置·安装包</button>
+  <button data-go="config" data-preset="D">配置·重复文件</button>
+  <button data-go="scan">扫描</button>
+  <button data-go="preview">预览</button>
+  <button data-go="dup">重复文件预览</button>
+  <button data-go="exec">执行</button>
+  <button data-go="result">结果</button>
+  <button data-go="history">历史</button>
+  <button data-go="undo">撤销预览</button>
+  <button data-go="quar">隔离区</button>
+  <button data-go="settings">设置</button>
+  <button data-go="about">关于</button>
+  <span class="sep"></span>
+  <button id="t-expired">状态：计划已过期</button>
+  <button id="t-cfgerr">状态：配置错误</button>
+  <button id="t-recover">状态：启动恢复</button>
+  <span class="sep"></span>
+  <button id="t-theme">切换浅色 / 深色</button>
+</div>
+
+<div class="stage">
+<div class="window" id="win">
+  <div class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <span class="name">organize</span>
+    <div class="right"><span class="dot"></span>整理引擎已就绪</div>
+  </div>
+
+  <div class="app">
+    <!-- ============ Sidebar ============ -->
+    <aside class="sidebar" id="sidebar">
+      <nav class="nav">
+        <a data-nav="home" class="on"><svg class="i"><use href="#i-home"/></svg>首页</a>
+        <div class="task-pill" id="taskPill" data-back-flow><b>正在进行的任务</b><span id="taskPillText">下载文件夹按类型整理</span></div>
+        <a data-nav="history"><svg class="i"><use href="#i-history"/></svg>整理历史</a>
+        <a data-nav="quar"><svg class="i"><use href="#i-box"/></svg>隔离区<span class="count alert num">12</span></a>
+        <a data-nav="settings"><svg class="i"><use href="#i-settings"/></svg>设置</a>
+        <a data-nav="about"><svg class="i"><use href="#i-info"/></svg>关于</a>
+      </nav>
+      <div class="guard">
+        <h4><svg class="i sm"><use href="#i-shield"/></svg>你的文件受到保护</h4>
+        <div class="g-row" data-nav="history"><span>可以撤销的整理</span><b class="num">3 次</b></div>
+        <div class="g-row" data-nav="quar"><span>隔离区里的文件</span><b class="num">12 个</b></div>
+        <div class="g-row" style="cursor:default"><span>永久删除</span><b>从不</b></div>
+      </div>
+    </aside>
+
+    <!-- ============ Main ============ -->
+    <main class="main" id="main">
+      <div class="flowhead" id="flowhead"></div>
+      <div class="views">
+
+        <!-- ============ HOME ============ -->
+        <section class="view" id="v-home">
+          <div class="vhead">
+            <div><h1>今天想整理哪里？</h1><p>选一个方案。应用会先扫描并给出预览，你确认后才会移动文件。</p></div>
+          </div>
+          <div class="vbody">
+            <div class="banner c-warn" id="recoverBanner" style="display:none;margin-bottom:16px;--c:var(--warn)">
+              <svg class="i"><use href="#i-alert"/></svg>
+              <div class="t"><b>上次整理没有正常结束。</b> <span>应用在今天 19:42 的整理中意外退出。已检查全部记录：312 个文件已整理完成，1 个文件已放回原位置。</span></div>
+              <button class="btn btn-sm btn-secondary" data-nav="history">查看这次整理</button>
+            </div>
+            <div class="home-grid">
+              <div>
+                <div class="presets" id="presets"></div>
+                <div class="section-t">最近任务</div>
+                <div class="panel">
+                  <div class="recent-row" data-nav="history"><span class="sdot c-warn"></span><div class="meta"><b>下载文件夹按类型整理</b><span>今天 19:42，1,138 个已移动，12 个失败</span></div><span class="badge c-warn">部分成功</span><span class="badge c-undo">可撤销</span></div>
+                  <div class="recent-row" data-nav="history"><span class="sdot c-ok"></span><div class="meta"><b>旧安装包清理</b><span>10月1日，14 个进入隔离区</span></div><span class="badge c-ok">完成</span><span class="badge c-undo">可撤销</span></div>
+                  <div class="recent-row" data-nav="history"><span class="sdot c-skip"></span><div class="meta"><b>图片按日期归档</b><span>昨天 21:58，326 个已移动</span></div><span class="badge c-ok">完成</span><span class="badge c-skip">已撤销</span></div>
+                </div>
+              </div>
+              <div class="side-col">
+                <div class="panel undo-card lastrun">
+                  <div class="panel-h"><svg class="i sm"><use href="#i-undo"/></svg>上次整理<span class="r faint">今天 19:42</span></div>
+                  <div class="panel-b">
+                    <div class="muted">下载文件夹按类型整理</div>
+                    <div class="big num">1,138 <span class="muted" style="font-size:13px;font-weight:400">个文件已移动</span></div>
+                    <p class="faint" style="font-size:12px;margin:4px 0 12px">不满意可以撤销。撤销前会先显示预览。</p>
+                    <button class="btn btn-undo" style="width:100%" data-go="undo"><svg class="i sm"><use href="#i-undo"/></svg>撤销上次整理</button>
+                  </div>
+                </div>
+                <div class="panel">
+                  <div class="panel-h">继续上次方案</div>
+                  <div class="panel-b">
+                    <b style="font-weight:500">下载文件夹按类型整理</b>
+                    <div class="pchg" style="margin:8px 0 12px"><span class="from"><svg class="i sm"><use href="#i-folder"/></svg>下载</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="to"><svg class="i sm"><use href="#i-folder"/></svg>文稿/整理</span></div>
+                    <button class="btn btn-secondary" style="width:100%" data-go="config" data-preset="A"><svg class="i sm"><use href="#i-scan"/></svg>用这个方案重新扫描</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ CONFIG ============ -->
+        <section class="view flow" id="v-config" data-step="1">
+          <div class="vhead">
+            <div><h1 id="cfgTitle">下载文件夹按类型整理</h1><p id="cfgDesc">把文件按类型放进不同的文件夹。只移动文件，不删除任何文件。</p></div>
+            <div class="tools"><button class="btn btn-ghost" data-nav="home"><svg class="i sm"><use href="#i-refresh"/></svg>换一个方案</button></div>
+          </div>
+          <div class="vbody">
+            <div class="cfg-grid">
+              <div>
+                <!-- 来源 -->
+                <div class="cfg-block">
+                  <div class="bh"><h3>要整理的文件夹</h3><p id="srcHint">可以添加多个</p><button class="r btn btn-sm btn-secondary"><svg class="i sm"><use href="#i-plus"/></svg>添加文件夹</button></div>
+                  <div class="bb" id="srcList"></div>
+                  <div class="bb">
+                    <div class="opt-row">
+                      <div class="ol"><b>包含子文件夹里的文件</b><span>只整理文件本身，文件夹不会被移动</span></div>
+                      <span class="switch on" data-toggle></span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 目标 -->
+                <div class="cfg-block" id="tgtBlock">
+                  <div class="bh"><h3 id="tgtTitle">整理到</h3><p id="tgtHint">文件会被移动到这里</p><button class="r btn btn-sm btn-secondary" id="tgtBtn">更改</button></div>
+                  <div class="bb" id="tgtList"></div>
+                </div>
+                <!-- 方案参数 -->
+                <div class="cfg-block">
+                  <div class="bh"><h3 id="paramTitle">要整理的类型</h3><p id="paramHint">点击开启或关闭</p></div>
+                  <div class="bb" id="paramBody"></div>
+                </div>
+              </div>
+              <!-- 右栏：结果示意 -->
+              <div class="panel" style="position:sticky;top:0">
+                <div class="panel-h"><svg class="i sm" style="color:var(--primary)"><use href="#i-eye"/></svg>整理后会是这样</div>
+                <div class="panel-b tree" id="treeView"></div>
+                <div class="panel-b" style="border-top:1px solid var(--line)">
+                  <div style="font-weight:500;margin-bottom:6px">这些文件会自动跳过</div>
+                  <ul class="skiplist">
+                    <li><svg class="i sm"><use href="#i-x"/></svg>还没下载完的文件</li>
+                    <li><svg class="i sm"><use href="#i-x"/></svg>Office 临时文件</li>
+                    <li><svg class="i sm"><use href="#i-x"/></svg>系统文件和系统文件夹</li>
+                    <li><svg class="i sm"><use href="#i-x"/></svg>正在被其他程序使用的文件</li>
+                    <li><svg class="i sm"><use href="#i-x"/></svg>快捷方式和链接</li>
+                  </ul>
+                </div>
+                <div class="note"><svg class="i sm"><use href="#i-shield"/></svg><span>下一步只扫描，不会改动任何文件。</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-secondary" data-nav="home"><svg class="i sm"><use href="#i-back"/></svg>返回首页</button>
+            <div class="sum" id="cfgSum">1 个文件夹，6 种类型</div>
+            <button class="btn btn-primary btn-lg" id="btnScan" data-go="scan"><svg class="i sm"><use href="#i-scan"/></svg>开始扫描</button>
+          </div>
+        </section>
+
+        <!-- ============ SCAN ============ -->
+        <section class="view flow" id="v-scan" data-step="2">
+          <div class="center">
+            <div class="matrix" id="matrix"></div>
+            <div class="scan-title" id="scanTitle">正在扫描</div>
+            <div class="scan-big num"><span id="scanCount">0</span><small>个文件已检查</small></div>
+            <div class="scan-cur"><span class="faint" style="font-size:12px">当前位置</span><div class="path" id="scanPath">~/Downloads</div></div>
+            <div class="phases" id="phases" style="display:none">
+              <div class="phase done" data-ph="0"><span class="pd"></span>按大小筛选</div>
+              <div class="phase" data-ph="1"><span class="pd"></span>比对部分内容</div>
+              <div class="phase" data-ph="2"><span class="pd"></span>比对完整内容</div>
+            </div>
+            <div class="calm"><svg class="i sm"><use href="#i-shield"/></svg>扫描只读取文件信息，不会改动任何文件。</div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-secondary" id="btnCancelScan"><svg class="i sm"><use href="#i-x"/></svg>取消扫描</button>
+            <div class="sum">取消后回到方案设置，不会留下任何改动。</div>
+          </div>
+        </section>
+
+        <!-- ============ PREVIEW ============ -->
+        <section class="view flow" id="v-preview" data-step="3">
+          <div class="vhead">
+            <div><h1>确认整理计划</h1><p>扫描于今天 20:14。只会整理下面勾选的文件，扫描后新增的文件不会被处理。</p></div>
+          </div>
+          <div class="vbody">
+            <div class="banner c-fail" id="expiredBanner" style="display:none;margin-bottom:12px">
+              <svg class="i"><use href="#i-alert"/></svg>
+              <div class="t"><b>文件夹在预览后发生了变化。</b> <span>目标文件夹里新增了 3 个文件，原计划可能会重名。请重新扫描，生成新的预览。</span></div>
+              <button class="btn btn-sm btn-primary" data-go="scan"><svg class="i sm"><use href="#i-refresh"/></svg>重新扫描</button>
+            </div>
+            <div class="panel summary">
+              <div class="hero"><b class="num" id="pvCount">1,150</b><span>个文件将被整理，共 <b class="num" id="pvSize" style="font-size:12px;display:inline;font-weight:600;color:var(--text)">3.0 GB</b></span></div>
+              <div>
+                <div class="planbar"><i class="c-move" style="flex:1150"></i><i class="c-warn" style="flex:60"></i><i class="c-skip" style="flex:42"></i></div>
+                <div class="legend">
+                  <div class="lg c-move"><span class="lk"><i></i>移动</span><b class="num">1,138</b></div>
+                  <div class="lg c-warn"><span class="lk"><i></i>重名，将自动改名</span><b class="num">12</b></div>
+                  <div class="lg c-quar"><span class="lk"><i></i>进入隔离区</span><b class="num">0</b></div>
+                  <div class="lg c-skip"><span class="lk"><i></i>跳过</span><b class="num">42</b></div>
+                  <div class="lg c-skip"><span class="lk"><i></i>你排除的</span><b class="num" id="pvEx">0</b></div>
+                </div>
+              </div>
+            </div>
+            <div class="banner c-warn" style="margin-top:12px">
+              <svg class="i"><use href="#i-alert"/></svg>
+              <div class="t"><b>12 个文件和目标位置的文件重名。</b> <span>它们会改名为“文件名 2.扩展名”，原有文件不会被覆盖。</span></div>
+              <button class="btn btn-sm btn-secondary" data-filter="conflict">只看重名</button>
+            </div>
+            <div class="ptools">
+              <label class="search"><svg class="i sm"><use href="#i-search"/></svg><input id="pvSearch" placeholder="搜索文件名"></label>
+              <div class="seg" id="pvFilter">
+                <button class="on" data-f="all">全部<span class="k num">1,192</span></button>
+                <button data-f="conflict">重名<span class="k num">12</span></button>
+                <button data-f="skip">跳过<span class="k num">42</span></button>
+                <button data-f="ex">已排除<span class="k num" id="pvExK">0</span></button>
+              </div>
+              <div class="r">
+                <label><span class="switch on" id="pvGroup"></span>按规则分组</label>
+              </div>
+            </div>
+            <div class="tbl" id="pvTable"></div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-secondary" data-go="config"><svg class="i sm"><use href="#i-back"/></svg>返回修改方案</button>
+            <div class="sum" id="pvFootSum">已选 <b class="num">1,150</b> 个文件，<b class="num">3.0 GB</b>。不会删除或覆盖任何文件。</div>
+            <button class="btn btn-primary btn-lg" id="btnExec"><svg class="i sm"><use href="#i-flow"/></svg><span id="btnExecText">整理 1,150 个文件</span></button>
+          </div>
+        </section>
+
+        <!-- ============ DUP PREVIEW ============ -->
+        <section class="view flow" id="v-dup" data-step="3">
+          <div class="vhead">
+            <div><h1>选择每组要保留的文件</h1><p>下面每组文件的内容完全相同。每组保留一份，其余文件进入隔离区，可以随时恢复。</p></div>
+            <div class="tools"><button class="btn btn-secondary" id="btnRec"><svg class="i sm"><use href="#i-check"/></svg>全部采用推荐</button></div>
+          </div>
+          <div class="vbody">
+            <div class="panel summary" style="margin-bottom:12px">
+              <div class="hero"><b class="num">4</b><span>组重复文件，共 9 个文件</span></div>
+              <div>
+                <div class="legend" style="margin-top:0">
+                  <div class="lg c-ok"><span class="lk"><i></i>已决定</span><b class="num" id="dupDone">0 / 4</b></div>
+                  <div class="lg c-quar"><span class="lk"><i></i>将进入隔离区</span><b class="num" id="dupQ">0 个</b></div>
+                  <div class="lg c-move"><span class="lk"><i></i>可以释放</span><b class="num" id="dupFree">0 B</b></div>
+                </div>
+              </div>
+            </div>
+            <div id="dupList"></div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-secondary" data-go="config" data-preset="D"><svg class="i sm"><use href="#i-back"/></svg>返回修改方案</button>
+            <div class="sum" id="dupSum">还有 <b>4</b> 组没有选择保留项。</div>
+            <button class="btn btn-primary btn-lg" id="btnDupExec" disabled><svg class="i sm"><use href="#i-box"/></svg><span id="btnDupText">隔离重复文件</span></button>
+          </div>
+        </section>
+
+        <!-- ============ EXEC ============ -->
+        <section class="view flow" id="v-exec" data-step="4">
+          <div class="center">
+            <div class="exec-wrap">
+              <div class="prog-top"><h2 id="exTitle">正在整理</h2><span class="pct num" id="exPct">0%</span></div>
+              <div class="prog" id="exProg"><i id="exBar" style="width:0%"></i></div>
+              <div class="prog-meta"><span class="num" id="exDone">0 / 1,150 个文件</span><span id="exEta">预计还需 1 分钟</span></div>
+              <div class="panel curfile">
+                <div class="ico"><svg class="i"><use href="#i-file"/></svg></div>
+                <div class="cm">
+                  <span class="faint" style="font-size:12px" id="exCurLabel">当前文件</span>
+                  <b id="exCur">2026 年度预算.xlsx</b>
+                  <div class="pchg" style="margin-top:4px"><span class="from" id="exFrom">下载</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="to" id="exTo">整理/文档</span></div>
+                  <div class="subprog" id="exSub" style="display:none"><i id="exSubBar"></i></div>
+                </div>
+              </div>
+              <div class="counters">
+                <div class="panel counter c-ok"><span class="lk"><i></i>已完成</span><b class="num" id="exOk">0</b></div>
+                <div class="panel counter c-skip"><span class="lk"><i></i>已跳过</span><b class="num" id="exSkip">0</b></div>
+                <div class="panel counter c-fail"><span class="lk"><i></i>失败</span><b class="num" id="exFail">0</b></div>
+              </div>
+              <div class="banner c-warn stopnote" id="exStopNote">
+                <svg class="i"><use href="#i-info"/></svg>
+                <div class="t"><b>正在完成当前文件，完成后停止。</b> <span>这个文件较大，正在跨磁盘复制。中途停止可能留下不完整的文件，所以会先完成它。</span></div>
+              </div>
+              <div class="calm" style="justify-content:center"><svg class="i sm"><use href="#i-shield"/></svg>不会覆盖任何已有文件。每一步都记录在整理历史里。</div>
+            </div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-danger" id="btnStop"><svg class="i sm"><use href="#i-stop"/></svg><span>停止整理</span></button>
+            <div class="sum">停止后，已整理的文件留在新位置，可以在整理历史中撤销。</div>
+          </div>
+        </section>
+
+        <!-- ============ RESULT ============ -->
+        <section class="view flow" id="v-result" data-step="5">
+          <div class="vbody" style="padding-top:22px">
+            <div class="res-hero" id="resHero"></div>
+            <div class="panel res-stats" id="resStats"></div>
+            <div class="res-grid">
+              <div class="panel" id="resFail">
+                <div class="panel-h"><svg class="i sm" style="color:var(--fail)"><use href="#i-alert"/></svg>没有处理成功的文件<span class="r"><button class="btn btn-sm btn-ghost">查看全部 12 个</button></span></div>
+                <div>
+                  <div class="fail-row"><div><b>发布会录屏.mp4</b><span class="path">~/Downloads</span></div><div><div class="why">文件正在被其他程序使用</div><div class="fix">关闭正在播放它的程序，然后再运行一次。</div></div></div>
+                  <div class="fail-row"><div><b>项目归档 2025.zip</b><span class="path">~/Downloads</span></div><div><div class="why">目标磁盘空间不足</div><div class="fix">目标磁盘还剩 120 MB。清理空间或换一个目标文件夹。</div></div></div>
+                  <div class="fail-row"><div><b>客户资料（终版）.pdf</b><span class="path">~/Downloads/共享</span></div><div><div class="why">没有读取权限</div><div class="fix">在“系统设置 › 隐私与安全性”中允许 organize 访问这个文件夹。</div></div></div>
+                </div>
+              </div>
+              <div class="panel undo-card">
+                <div class="panel-h"><svg class="i sm"><use href="#i-undo"/></svg>这次整理可以撤销</div>
+                <div class="panel-b">
+                  <p class="muted" style="margin-bottom:12px" id="resUndoText">1,138 个已移动的文件都可以放回原位置。撤销前会先显示预览，你可以只恢复部分文件。</p>
+                  <button class="btn btn-undo" style="width:100%" data-go="undo"><svg class="i sm"><use href="#i-undo"/></svg>撤销本次整理</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-secondary" data-nav="home">返回首页</button>
+            <button class="btn btn-ghost" data-go="config" data-preset="A"><svg class="i sm"><use href="#i-refresh"/></svg>再运行一次</button>
+            <button class="btn btn-ghost" data-nav="history"><svg class="i sm"><use href="#i-history"/></svg>查看整理记录</button>
+            <div class="sum"></div>
+            <button class="btn btn-primary btn-lg"><svg class="i sm"><use href="#i-external"/></svg>打开目标文件夹</button>
+          </div>
+        </section>
+
+        <!-- ============ HISTORY ============ -->
+        <section class="view" id="v-history">
+          <div class="vhead">
+            <div><h1>整理历史</h1><p>每次整理都记录了每个文件的去向。可以撤销的整理会标出来。</p></div>
+            <div class="tools">
+              <div class="seg"><button class="on">全部</button><button>可撤销</button><button>部分成功</button><button>失败</button></div>
+            </div>
+          </div>
+          <div class="vbody" style="padding-bottom:20px">
+            <div class="split">
+              <div class="hlist" id="hList"></div>
+              <div class="panel hdetail">
+                <div class="panel-h" style="padding:14px 16px">
+                  <div><div style="font-size:15px">下载文件夹按类型整理</div><div class="faint" style="font-weight:400;font-size:12px">今天 19:42 开始，用时 1 分 12 秒</div></div>
+                  <span class="r badge c-warn">部分成功</span>
+                </div>
+                <dl class="snap">
+                  <dt>方案快照</dt><dd>下载文件夹按类型整理（当时的设置）</dd>
+                  <dt>来源</dt><dd class="path">~/Downloads（包含子文件夹）</dd>
+                  <dt>整理到</dt><dd class="path">~/Documents/整理</dd>
+                  <dt>类型</dt><dd>文档、图片、视频、音频、压缩包、安装包、其他文件</dd>
+                </dl>
+                <div class="tabs" id="hTabs">
+                  <button class="on" data-t="move">移动 1,138</button><button data-t="skip">跳过 42</button><button data-t="fail">失败 12</button><button data-t="quar">隔离 0</button>
+                </div>
+                <div style="flex:1;overflow:auto" id="hOps"></div>
+                <div class="vfoot" style="border-radius:0 0 var(--r-panel) var(--r-panel)">
+                  <button class="btn btn-secondary"><svg class="i sm"><use href="#i-external"/></svg>打开目标文件夹</button>
+                  <div class="sum">撤销前会先显示预览。</div>
+                  <button class="btn btn-undo" data-go="undo"><svg class="i sm"><use href="#i-undo"/></svg>撤销这次整理</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ UNDO PREVIEW ============ -->
+        <section class="view" id="v-undo">
+          <div class="vhead">
+            <div><h1>撤销预览</h1><p>下载文件夹按类型整理，今天 19:42。勾选的文件会被放回原来的位置。</p></div>
+            <div class="tools"><button class="btn btn-ghost" data-nav="history"><svg class="i sm"><use href="#i-back"/></svg>返回历史</button></div>
+          </div>
+          <div class="vbody">
+            <div class="panel summary">
+              <div class="hero"><b class="num" style="color:var(--undo)">1,126</b><span>个文件可以恢复</span></div>
+              <div>
+                <div class="planbar"><i class="c-undo" style="flex:1120"></i><i class="c-warn" style="flex:40"></i><i class="c-skip" style="flex:40"></i><i class="c-fail" style="flex:30"></i></div>
+                <div class="legend">
+                  <div class="lg c-undo"><span class="lk"><i></i>放回原位置</span><b class="num">1,120</b></div>
+                  <div class="lg c-warn"><span class="lk"><i></i>原位置被占用，改名恢复</span><b class="num">6</b></div>
+                  <div class="lg c-skip"><span class="lk"><i></i>整理后被修改过，默认跳过</span><b class="num">8</b></div>
+                  <div class="lg c-fail"><span class="lk"><i></i>已找不到，无法恢复</span><b class="num">4</b></div>
+                </div>
+              </div>
+            </div>
+            <div class="banner c-undo" style="margin:12px 0">
+              <svg class="i"><use href="#i-shield"/></svg>
+              <div class="t"><b>恢复不会覆盖任何文件。</b> <span>原位置已有同名文件时，恢复的文件会命名为“文件名（已恢复）.扩展名”。这次撤销也会记入整理历史。</span></div>
+            </div>
+            <div class="tbl" id="undoTable"></div>
+          </div>
+          <div class="vfoot">
+            <button class="btn btn-secondary" data-nav="history">取消</button>
+            <div class="sum">已选 <b class="num" id="undoSel">1,126</b> 个文件</div>
+            <button class="btn btn-undo-solid btn btn-lg" id="btnUndo"><svg class="i sm"><use href="#i-undo"/></svg><span id="btnUndoText">恢复 1,126 个文件</span></button>
+          </div>
+        </section>
+
+        <!-- ============ QUARANTINE ============ -->
+        <section class="view" id="v-quar">
+          <div class="vhead">
+            <div><h1>隔离区</h1><p>这里的文件没有被删除。你可以把它们放回原位置，或在确认不需要后移入系统回收站。</p></div>
+            <div class="tools"><label class="search"><svg class="i sm"><use href="#i-search"/></svg><input placeholder="搜索文件名"></label></div>
+          </div>
+          <div class="vbody">
+            <div class="panel qstats">
+              <div class="qs"><b class="num">12</b><span>个文件</span></div>
+              <div class="qs"><b class="num">2.4 GB</b><span>占用空间</span></div>
+              <div class="qs"><b class="num" style="color:var(--quar)">3</b><span>个超过 30 天</span></div>
+              <div class="loc"><div><div class="faint" style="font-size:12px">存放位置</div><div class="path">~/Library/Application Support/organize/隔离区</div></div><button class="btn btn-sm btn-secondary"><svg class="i sm"><use href="#i-external"/></svg>打开</button></div>
+            </div>
+            <div class="banner c-quar" style="margin:12px 0">
+              <svg class="i"><use href="#i-info"/></svg>
+              <div class="t"><b>3 个文件已在隔离区超过 30 天。</b> <span>应用不会自动清理它们。请决定恢复，或移入系统回收站。</span></div>
+              <button class="btn btn-sm btn-secondary" id="qOld">选中这 3 个文件</button>
+            </div>
+            <div class="tbl" id="qTable"></div>
+          </div>
+          <div class="selbar" id="qSel">
+            <div class="sum">已选 <b class="num" id="qSelN">0</b> 个文件，<b class="num" id="qSelS">0 B</b></div>
+            <button class="btn btn-ghost"><svg class="i sm"><use href="#i-external"/></svg>打开所在位置</button>
+            <button class="btn btn-danger" data-modal="mTrash"><svg class="i sm"><use href="#i-trash"/></svg>移入系统回收站</button>
+            <button class="btn btn-secondary"><svg class="i sm"><use href="#i-folder"/></svg>恢复到其他位置</button>
+            <button class="btn btn-primary" id="qRestore"><svg class="i sm"><use href="#i-undo"/></svg>恢复到原位置</button>
+          </div>
+        </section>
+
+        <!-- ============ SETTINGS ============ -->
+        <section class="view" id="v-settings">
+          <div class="vhead"><div><h1>设置</h1><p>修改会立即保存。</p></div></div>
+          <div class="vbody">
+            <div class="set-wrap">
+              <div class="set-sec"><h2>整理</h2>
+                <div class="panel">
+                  <div class="set-row"><div class="sl"><b>默认整理到</b><span class="path">~/Documents/整理</span></div><button class="btn btn-sm btn-secondary">更改</button></div>
+                  <div class="set-row"><div class="sl"><b>整理完成后通知我</b><span>窗口不在前台时，用系统通知提醒</span></div><span class="switch on" data-toggle></span></div>
+                </div>
+              </div>
+              <div class="set-sec"><h2>安全</h2>
+                <div class="panel">
+                  <div class="set-row"><div class="sl"><b>隔离区位置</b><span class="path">~/Library/Application Support/organize/隔离区</span></div><button class="btn btn-sm btn-secondary">更改</button></div>
+                  <div class="set-row"><div class="sl"><b>隔离区提醒时间</b><span>文件超过这个天数后提醒你处理。应用不会自动删除。</span></div><div class="stepper"><button>−</button><span class="num">30 天</span><button>+</button></div></div>
+                  <div class="set-row"><div class="sl"><b>保留的整理记录</b><span>超出后，最早且已无法撤销的记录会被移除</span></div><div class="stepper"><button>−</button><span class="num">200 次</span><button>+</button></div></div>
+                </div>
+              </div>
+              <div class="set-sec"><h2>隐私</h2>
+                <div class="panel">
+                  <div class="set-row"><div class="sl"><b>日志中隐藏文件路径</b><span>日志里用“~/文件夹/***”代替真实路径</span></div><span class="switch on" data-toggle></span></div>
+                </div>
+              </div>
+              <div class="set-sec"><h2>外观</h2>
+                <div class="panel">
+                  <div class="set-row"><div class="sl"><b>主题</b></div>
+                    <div class="seg" id="themeSeg">
+                      <button data-th="system"><svg class="i sm"><use href="#i-monitor"/></svg>跟随系统</button>
+                      <button data-th="light"><svg class="i sm"><use href="#i-sun"/></svg>浅色</button>
+                      <button data-th="dark" class="on"><svg class="i sm"><use href="#i-moon"/></svg>深色</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ ABOUT ============ -->
+        <section class="view" id="v-about">
+          <div class="vhead"><div><h1>关于与诊断</h1></div></div>
+          <div class="vbody">
+            <div class="set-wrap">
+              <div class="panel about-hero" style="margin-bottom:18px">
+                <div class="logo"><svg class="i"><use href="#i-flow"/></svg></div>
+                <div><div style="font-size:18px;font-weight:600">organize</div><div class="muted num">应用 1.0.0，整理引擎 1.0.0（organize 3.3.0）</div></div>
+              </div>
+              <div class="set-sec"><h2>诊断</h2>
+                <div class="panel">
+                  <div class="set-row"><div class="sl"><b>日志文件夹</b><span>应用和整理引擎的运行记录</span></div><button class="btn btn-sm btn-secondary"><svg class="i sm"><use href="#i-external"/></svg>打开</button></div>
+                  <div class="set-row"><div class="sl"><b>导出诊断包</b><span>遇到问题时导出，发给支持人员。只保存在你的电脑上。</span></div><button class="btn btn-sm btn-secondary" data-modal="mDiag">导出</button></div>
+                </div>
+              </div>
+              <div class="set-sec"><h2>说明</h2>
+                <div class="panel">
+                  <div class="set-row"><div class="sl"><b>隐私说明</b><span>应用不上传任何文件或文件名</span></div><button class="btn btn-sm btn-ghost">查看</button></div>
+                  <div class="set-row"><div class="sl"><b>开源许可证</b></div><button class="btn btn-sm btn-ghost">查看</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ ONBOARDING ============ -->
+  <div class="onb" id="onb">
+    <div class="onb-dots"><i class="on"></i><i></i><i></i></div>
+    <div class="onb-page on" data-p="0">
+      <h1>整理文件，不用担心弄乱</h1>
+      <p class="lead">organize 会先告诉你每个文件要去哪里。你确认后才动手，做完也能撤销。</p>
+      <div class="promise">
+        <div class="p"><span class="k">第 1 步</span><h3><svg class="i" style="color:var(--primary)"><use href="#i-eye"/></svg>先预览</h3><p>扫描后列出每个文件的新位置。</p></div>
+        <div class="ar"><svg class="i"><use href="#i-arrow"/></svg></div>
+        <div class="p"><span class="k">第 2 步</span><h3><svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg>再整理</h3><p>只处理你勾选的文件，从不覆盖。</p></div>
+        <div class="ar"><svg class="i"><use href="#i-arrow"/></svg></div>
+        <div class="p"><span class="k">第 3 步</span><h3><svg class="i" style="color:var(--undo)"><use href="#i-undo"/></svg>随时撤销</h3><p>每次整理都有记录，可以放回原处。</p></div>
+      </div>
+      <button class="btn btn-primary btn-lg" data-onb="1">开始</button>
+    </div>
+    <div class="onb-page" data-p="1">
+      <h1>先整理哪个文件夹？</h1>
+      <p class="lead">选一个最乱的。之后随时可以添加其他文件夹。</p>
+      <div class="tiles" id="onbTiles">
+        <div class="tile on"><span class="chk on"></span><svg class="i lg"><use href="#i-download"/></svg><h4>下载</h4><div class="path">~/Downloads</div></div>
+        <div class="tile"><span class="chk"></span><svg class="i lg"><use href="#i-monitor"/></svg><h4>桌面</h4><div class="path">~/Desktop</div></div>
+        <div class="tile"><span class="chk"></span><svg class="i lg"><use href="#i-image"/></svg><h4>图片</h4><div class="path">~/Pictures</div></div>
+        <div class="tile add"><svg class="i lg"><use href="#i-plus"/></svg><h4>选择其他文件夹</h4><div class="faint" style="font-size:12px">打开系统选择窗口</div></div>
+      </div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" data-onb="0">上一步</button><button class="btn btn-primary btn-lg" data-onb="2">下一步</button></div>
+    </div>
+    <div class="onb-page" data-p="2">
+      <h1>想怎么整理？</h1>
+      <p class="lead">根据“下载”文件夹，推荐按类型整理。</p>
+      <div class="presets" id="onbPresets" style="width:100%;margin:32px 0 28px;text-align:left"></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" data-onb="1">上一步</button><button class="btn btn-primary btn-lg" id="onbFinish"><svg class="i sm"><use href="#i-scan"/></svg>扫描并预览</button></div>
+      <p class="faint" style="font-size:12px;margin-top:12px">扫描不会改动任何文件。</p>
+    </div>
+  </div>
+
+  <!-- ============ MODALS ============ -->
+  <div class="scrim" id="scrim">
+    <div class="modal" id="mExec">
+      <div class="mh"><div class="ic" style="--c:var(--primary)"><svg class="i"><use href="#i-flow"/></svg></div><div><h3 id="mExecTitle">整理 1,150 个文件？</h3><p>开始后会按预览逐个处理。</p></div></div>
+      <ul class="mb">
+        <li><svg class="i sm" style="color:var(--move)"><use href="#i-arrow"/></svg><span><b>1,150 个文件</b>移动到 <span class="path">~/Documents/整理</span></span></li>
+        <li><svg class="i sm" style="color:var(--warn)"><use href="#i-alert"/></svg><span><b>12 个重名文件</b>自动改名，不覆盖原文件</span></li>
+        <li><svg class="i sm" style="color:var(--ok)"><use href="#i-shield"/></svg><span>不删除任何文件</span></li>
+        <li><svg class="i sm" style="color:var(--undo)"><use href="#i-undo"/></svg><span>完成后可以在整理历史中撤销</span></li>
+      </ul>
+      <div class="mf"><button class="btn btn-secondary" data-close>再看看</button><button class="btn btn-primary" id="mExecGo">开始整理</button></div>
+    </div>
+    <div class="modal" id="mStop">
+      <div class="mh"><div class="ic" style="--c:var(--warn)"><svg class="i"><use href="#i-stop"/></svg></div><div><h3>停止整理？</h3><p>当前文件完成后停止。</p></div></div>
+      <ul class="mb">
+        <li><svg class="i sm" style="color:var(--ok)"><use href="#i-check"/></svg><span>已整理的 <b class="num" id="mStopN">0</b> 个文件留在新位置</span></li>
+        <li><svg class="i sm" style="color:var(--undo)"><use href="#i-undo"/></svg><span>它们可以在整理历史中撤销</span></li>
+        <li><svg class="i sm" style="color:var(--skip)"><use href="#i-x"/></svg><span>剩下的文件不会被处理</span></li>
+      </ul>
+      <div class="mf"><button class="btn btn-secondary" data-close>继续整理</button><button class="btn btn-danger-solid btn" id="mStopGo">停止整理</button></div>
+    </div>
+    <div class="modal" id="mTrash">
+      <div class="mh"><div class="ic" style="--c:var(--fail)"><svg class="i"><use href="#i-trash"/></svg></div><div><h3 id="mTrashTitle">把 3 个文件移入系统回收站？</h3><p>这些文件会离开隔离区。</p></div></div>
+      <ul class="mb">
+        <li><svg class="i sm" style="color:var(--fail)"><use href="#i-alert"/></svg><span>移入后，<b>organize 不能再恢复它们</b></span></li>
+        <li><svg class="i sm" style="color:var(--text-3)"><use href="#i-info"/></svg><span>清空系统回收站之前，你仍可以从回收站找回</span></li>
+      </ul>
+      <div class="mf"><button class="btn btn-secondary" data-close>取消</button><button class="btn btn-danger-solid btn" id="mTrashGo">移入回收站</button></div>
+    </div>
+    <div class="modal" id="mDiag">
+      <div class="mh"><div class="ic" style="--c:var(--primary)"><svg class="i"><use href="#i-info"/></svg></div><div><h3>导出诊断包？</h3><p>诊断包只保存在你的电脑上，不会自动上传。</p></div></div>
+      <ul class="mb">
+        <li><svg class="i sm"><use href="#i-check"/></svg><span>应用日志和整理引擎日志</span></li>
+        <li><svg class="i sm"><use href="#i-check"/></svg><span>方案设置（文件路径已隐藏）</span></li>
+        <li><svg class="i sm"><use href="#i-check"/></svg><span>系统版本和最近的失败摘要</span></li>
+      </ul>
+      <div class="mf"><button class="btn btn-secondary" data-close>取消</button><button class="btn btn-primary" data-close data-toast="诊断包已保存到“下载”文件夹">选择保存位置</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><svg class="i sm"><use href="#i-check"/></svg><span id="toastText"></span></div>
+</div>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const ic = (id, cls = 'sm') => `<svg class="i ${cls}"><use href="#i-${id}"/></svg>`;
+const fmt = n => n.toLocaleString('en-US');
+
+/* ---------- presets ---------- */
+const PRESETS = {
+  A: { name: '下载文件夹按类型整理', desc: '把文件按类型放进不同的文件夹。只移动文件，不删除任何文件。', icon: 'download', c: 'move',
+       card: '文档、图片、视频等各归一处。', tag: ['c-move', '只移动，不删除'],
+       viz: `<span class="f">${ic('folder')}下载</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="f tg">${ic('file')}文档</span><span class="f tg">${ic('image')}图片</span><span class="f tg">${ic('video')}视频</span><span class="f tg">+4</span>` },
+  B: { name: '图片按日期归档', desc: '把图片按年、月放进文件夹。按文件的修改日期归档。', icon: 'calendar', c: 'move',
+       card: '按年和月整理照片与截图。', tag: ['c-move', '只移动，不删除'],
+       viz: `<span class="f">${ic('folder')}图片</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="f tg">${ic('folder')}2026年</span><svg class="i sm ar"><use href="#i-chevr"/></svg><span class="f tg">${ic('folder')}10月</span>` },
+  C: { name: '旧安装包清理', desc: '找出很久没用的安装包，放进隔离区。不会永久删除。', icon: 'package', c: 'quar',
+       card: '腾出被旧安装包占用的空间。', tag: ['c-quar', '进入隔离区，可恢复'],
+       viz: `<span class="f">${ic('package')}超过 90 天的安装包</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="f tg">${ic('box')}隔离区</span>` },
+  D: { name: '重复文件查找', desc: '找出内容完全相同的文件。由你决定每组保留哪一份。', icon: 'copy', c: 'undo',
+       card: '内容逐字节相同才算重复。', tag: ['c-undo', '由你选择保留哪一份'],
+       viz: `<span class="f">${ic('folder')}下载</span><span class="f">${ic('folder')}桌面</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="f tg">${ic('copy')}重复组</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="f">${ic('box')}隔离区</span>` },
+};
+const presetCard = (k, compact) => {
+  const p = PRESETS[k];
+  return `<button class="preset" data-go="config" data-preset="${k}" style="--c:var(--${p.c})">
+    <div class="top"><div class="ico">${ic(p.icon, '')}</div><div><h3>${p.name}</h3><p>${p.card}</p></div></div>
+    ${compact ? '' : `<div class="flowviz">${p.viz}</div>`}
+    <div class="foot"><span class="badge ${p.tag[0]}">${p.tag[1]}</span><span class="go">开始设置${ic('chevr')}</span></div>
+  </button>`;
+};
+$('#presets').innerHTML = Object.keys(PRESETS).map(k => presetCard(k)).join('');
+$('#onbPresets').innerHTML = Object.keys(PRESETS).map(k => presetCard(k, true)).join('');
+$$('#onbPresets .preset').forEach((el, i) => { el.removeAttribute('data-go'); if (i === 0) el.style.boxShadow = '0 0 0 2px var(--primary)'; });
+
+/* ---------- state ---------- */
+const S = { view: 'home', preset: 'A', excluded: new Set(), filter: 'all', group: true, cfgErr: false, theme: 'dark' };
+const FLOW = ['选择方案', '设置文件夹', '扫描', '预览', '整理', '结果'];
+
+function renderFlowhead(step) {
+  let h = '';
+  FLOW.forEach((t, i) => {
+    const cls = i < step ? 'done' : i === step ? 'cur' : '';
+    h += `<div class="step ${cls}"><span class="n">${i < step ? '✓' : i + 1}</span>${t}</div>`;
+    if (i < FLOW.length - 1) h += `<span class="step-line ${i < step ? 'done' : ''}"></span>`;
+  });
+  h += `<div class="safe">${ic('shield')}确认前不会改动任何文件</div>`;
+  if (step >= 4) h = h.replace('确认前不会改动任何文件', '每个文件的去向都会记录，可以撤销');
+  $('#flowhead').innerHTML = h;
+}
+
+function go(view, opts = {}) {
+  if (opts.preset) setPreset(opts.preset);
+  stopTimers();
+  S.view = view;
+  $('#onb').classList.toggle('on', view === 'onboarding');
+  if (view === 'onboarding') { onbStep(0); return; }
+  $$('.view').forEach(v => v.classList.remove('on'));
+  const el = $('#v-' + view);
+  el.classList.add('on');
+  const isFlow = el.classList.contains('flow');
+  $('#main').classList.toggle('flow', isFlow);
+  if (isFlow) renderFlowhead(+el.dataset.step);
+  const navKey = { undo: 'history' }[view] || view;
+  $$('.nav a').forEach(a => a.classList.toggle('on', a.dataset.nav === navKey));
+  if (isFlow) S.flowView = view;
+  if (view === 'home' || view === 'result') S.flowView = view === 'result' ? null : S.flowView;
+  $('#sidebar').classList.toggle('in-flow', !isFlow && !!S.flowView && view !== 'home');
+  $('#sidebar').classList.toggle('locked', view === 'exec');
+  $('#taskPillText').textContent = PRESETS[S.preset].name;
+  $$('#proto [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === view && (view !== 'config' || b.dataset.preset === S.preset)));
+  if (view === 'scan') startScan();
+  if (view === 'exec') startExec();
+  if (view === 'preview') renderPreview();
+  if (view === 'dup') renderDup();
+  if (view === 'result') renderResult();
+}
+
+/* ---------- config ---------- */
+const CATS = [
+  ['file', '文档', 'PDF、Word、Excel、PPT、TXT', true],
+  ['image', '图片', 'JPG、PNG、GIF、WEBP、HEIC', true],
+  ['video', '视频', 'MP4、MOV、MKV、AVI', true],
+  ['music', '音频', 'MP3、M4A、WAV、FLAC', true],
+  ['archive', '压缩包', 'ZIP、RAR、7Z、TAR', true],
+  ['package', '安装包', 'DMG、PKG、EXE、MSI', true],
+  ['file', '其他文件', '不属于以上类型的文件', true],
+];
+function folderRow(name, path, ok = true, okText = '可以读取', removable = true) {
+  return `<div class="folder ${ok ? '' : 'err'}">${ic('folder', '')}<div class="fm"><b>${name}</b><span class="path">${path}</span></div>
+    <span class="st">${ic(ok ? 'check' : 'alert')}${okText}</span>${removable ? `<button class="btn btn-sm btn-ghost" aria-label="移除">${ic('x')}</button>` : ''}</div>`;
+}
+function setPreset(k) {
+  S.preset = k;
+  const p = PRESETS[k];
+  $('#cfgTitle').textContent = p.name;
+  $('#cfgDesc').textContent = p.desc;
+  const multi = k === 'D';
+  $('#srcHint').textContent = multi ? '添加所有可能有重复文件的文件夹' : '可以添加多个';
+  let src = k === 'B' ? folderRow('图片', '~/Pictures') : folderRow('下载', '~/Downloads');
+  if (multi) src += folderRow('桌面', '~/Desktop');
+  if (S.cfgErr && k === 'A') src += folderRow('团队共享', '/Volumes/NAS/团队共享', false, '无法读取') +
+     `<div class="inline-err">${ic('alert')}<div><b>没有权限读取“团队共享”。</b> <span>在“系统设置 › 隐私与安全性 › 文件与文件夹”中允许 organize 访问，或移除这个文件夹。</span></div></div>`;
+  $('#srcList').innerHTML = src;
+
+  const toQuar = k === 'C' || k === 'D';
+  $('#tgtTitle').textContent = toQuar ? '命中的文件会放到' : '整理到';
+  $('#tgtHint').textContent = toQuar ? '隔离区由应用管理，可以随时恢复' : '文件会被移动到这里';
+  $('#tgtBtn').style.display = toQuar ? 'none' : '';
+  $('#tgtList').innerHTML = toQuar
+    ? `<div class="folder">${ic('box', '')}<div class="fm"><b>隔离区</b><span class="path">~/Library/Application Support/organize/隔离区</span></div><span class="st">${ic('shield')}不会永久删除</span></div>`
+    : (S.cfgErr && k === 'A'
+      ? folderRow('整理', '~/Downloads/整理', false, '在来源文件夹里', false) + `<div class="inline-err">${ic('alert')}<div><b>目标文件夹在“下载”里面。</b> <span>这样整理后的文件会被再次扫描。请选择“下载”以外的文件夹。</span></div></div>`
+      : folderRow(k === 'B' ? '图片归档' : '整理', k === 'B' ? '~/Pictures/归档' : '~/Documents/整理', true, '可以写入', false));
+
+  let pt = '', ph = '', body = '', tree = '';
+  if (k === 'A') {
+    pt = '要整理的类型'; ph = '点击开启或关闭';
+    body = `<div class="cats">${CATS.map((c, i) => `<div class="cat ${c[3] ? 'on' : ''}" data-cat="${i}">${ic(c[0], '')}<div class="cm"><b>${c[1]}</b><span>${c[2]}</span></div><span class="chk ${c[3] ? 'on' : ''}"></span></div>`).join('')}</div>`;
+    tree = `<div class="tn">${ic('folder')}<b>整理</b></div>` + CATS.map((c, i) => `<div class="tn ind1 ${c[3] ? '' : 'off'}" data-tcat="${i}">${ic('folder')}${c[1]}<span class="ext">${c[2].split('、').slice(0, 3).join(' ')}</span></div>`).join('');
+  } else if (k === 'B') {
+    pt = '归档方式'; ph = '';
+    body = `<div class="banner c-quar" style="--c:var(--quar)">${ic('info', '')}<div class="t"><b>按文件修改日期归档。</b> <span>修改日期不一定等于拍摄日期。例如复制过的照片，日期会变成复制的那天。</span></div></div>
+      <div class="opt-row" style="margin-top:10px"><div class="ol"><b>包含的图片格式</b><span>JPG、PNG、GIF、WEBP、HEIC</span></div></div>`;
+    tree = `<div class="tn">${ic('folder')}<b>图片归档</b></div><div class="tn ind1">${ic('folder')}2026年</div><div class="tn ind2">${ic('folder')}10月<span class="ext">218 个文件（示例）</span></div><div class="tn ind2">${ic('folder')}9月</div><div class="tn ind1">${ic('folder')}2025年</div><div class="tn ind2">${ic('folder')}12月</div>`;
+  } else if (k === 'C') {
+    pt = '哪些算旧安装包'; ph = '';
+    body = `<div class="opt-row" style="border-top:0;padding-top:0"><div class="ol"><b>超过多少天没有修改</b><span>推荐 90 天</span></div>
+        <div class="seg"><button>30 天</button><button>60 天</button><button class="on">90 天</button><button>180 天</button><button>自定义</button></div></div>
+      <div class="cats" style="margin-top:6px">
+        <div class="cat on">${ic('package', '')}<div class="cm"><b>Windows 安装包</b><span>EXE、MSI、MSIX</span></div><span class="chk on"></span></div>
+        <div class="cat on">${ic('package', '')}<div class="cm"><b>macOS 安装包</b><span>DMG、PKG</span></div><span class="chk on"></span></div>
+        <div class="cat">${ic('archive', '')}<div class="cm"><b>压缩包</b><span>ZIP、RAR、7Z。压缩包里可能有其他文件</span></div><span class="chk"></span></div>
+      </div>`;
+    tree = `<div class="tn">${ic('box')}<b>隔离区</b></div><div class="tn ind1">${ic('package')}Zoom_6.0.2.pkg<span class="ext">142 天前</span></div><div class="tn ind1">${ic('package')}Setup_v2.3.exe<span class="ext">210 天前</span></div><div class="tn ind1 faint">……扫描后显示全部</div>`;
+  } else {
+    pt = '查找方式'; ph = '';
+    body = `<div class="banner c-undo" style="--c:var(--undo)">${ic('shield', '')}<div class="t"><b>找到的重复文件不会自动处理。</b> <span>扫描后，你逐组选择保留哪一份，其余文件进入隔离区。</span></div></div>
+      <div class="opt-row" style="margin-top:10px"><div class="ol"><b>忽略小于 1 MB 的文件</b><span>小文件重复占用空间很少，跳过可以更快完成</span></div><span class="switch on" data-toggle></span></div>`;
+    tree = `<div class="tn">${ic('copy')}<b>重复组 1</b><span class="ext">612 MB</span></div><div class="tn ind1">${ic('check')}发布会录屏.mp4<span class="ext">保留</span></div><div class="tn ind1">${ic('box')}发布会录屏 (1).mp4<span class="ext">隔离</span></div><div class="tn faint" style="margin-top:6px">内容逐字节相同才算重复。名字相同但内容不同的文件不会被列出。</div>`;
+  }
+  $('#paramTitle').textContent = pt; $('#paramHint').textContent = ph;
+  $('#paramBody').innerHTML = body; $('#treeView').innerHTML = tree;
+  const nSrc = multi ? 2 : 1;
+  const blocked = S.cfgErr && k === 'A';
+  $('#cfgSum').innerHTML = blocked ? `<span style="color:var(--fail)">有 2 个问题需要处理后才能扫描</span>` : `${nSrc} 个文件夹，已检查可以读取`;
+  $('#btnScan').disabled = blocked;
+}
+
+/* ---------- scan ---------- */
+let timers = [];
+function stopTimers() { timers.forEach(clearInterval); timers = []; }
+const M_COLS = 32, M_ROWS = 7;
+$('#matrix').innerHTML = '<i></i>'.repeat(M_COLS * M_ROWS);
+const SCAN_PATHS = ['~/Downloads', '~/Downloads/项目资料', '~/Downloads/项目资料/2025 季度', '~/Downloads/微信文件', '~/Downloads/截图', '~/Downloads/安装包'];
+let scanTick, execTick;
+function startScan() {
+  const cells = $$('#matrix i'); cells.forEach(c => c.className = '');
+  const dup = S.preset === 'D';
+  $('#phases').style.display = dup ? 'flex' : 'none';
+  $('#scanTitle').textContent = dup ? '正在查找重复文件' : '正在扫描';
+  let col = 0, n = 0; const total = dup ? 2840 : 1192;
+  timers.push(setInterval(scanTick = () => {
+    cells.forEach((c, i) => { const cc = i % M_COLS; c.classList.toggle('lit', cc === col && Math.random() > .35); if (cc < col && !c.classList.contains('seen')) { c.classList.add('seen'); if (Math.random() > .9) c.classList.add('hit'); } });
+    col++;
+    n = Math.min(total, Math.round(total * col / M_COLS));
+    $('#scanCount').textContent = fmt(n);
+    $('#scanPath').textContent = SCAN_PATHS[Math.min(SCAN_PATHS.length - 1, Math.floor(col / M_COLS * SCAN_PATHS.length))];
+    if (dup) $$('.phase').forEach((p, i) => { const ph = Math.floor(col / M_COLS * 3); p.className = 'phase ' + (i < ph ? 'done' : i === ph ? 'cur' : ''); });
+    if (col > M_COLS + 2) { stopTimers(); go(dup ? 'dup' : 'preview'); }
+  }, 110));
+}
+
+/* ---------- preview data ---------- */
+const SRC = { '下载': '~/Downloads', '下载/项目资料': '~/Downloads/项目资料', '下载/微信文件': '~/Downloads/微信文件' };
+const PV = [
+  { g: '文档', icon: 'file', tgt: '整理/文档', count: 318, size: '1.1 GB', items: [
+    { n: '2026 年度预算.xlsx', s: '1.2 MB', src: '下载' },
+    { n: '合同扫描件（盖章版）.pdf', s: '4.8 MB', src: '下载' },
+    { n: '报价单.pdf', s: '312 KB', src: '下载', cf: '报价单 2.pdf' },
+    { n: '会议纪要 10-02.docx', s: '86 KB', src: '下载/项目资料' },
+    { n: '产品路线图 v3.pptx', s: '18.4 MB', src: '下载' } ] },
+  { g: '图片', icon: 'image', tgt: '整理/图片', count: 524, size: '860 MB', items: [
+    { n: 'IMG_2041.HEIC', s: '2.9 MB', src: '下载/微信文件' },
+    { n: '截屏 2026-10-03 21.14.08.png', s: '1.1 MB', src: '下载', cf: '截屏 2026-10-03 21.14.08 2.png' },
+    { n: '头像 $final {2}.jpg', s: '240 KB', src: '下载' },
+    { n: 'design-ref.webp', s: '512 KB', src: '下载' } ] },
+  { g: '视频', icon: 'video', tgt: '整理/视频', count: 37, size: '980 MB', items: [
+    { n: '发布会录屏.mp4', s: '612 MB', src: '下载' },
+    { n: 'screen-record 0930.mov', s: '208 MB', src: '下载' } ] },
+  { g: '压缩包', icon: 'archive', tgt: '整理/压缩包', count: 64, size: '1.4 GB', items: [
+    { n: '素材包.zip', s: '96 MB', src: '下载' },
+    { n: 'backup 2025.7z', s: '1.1 GB', src: '下载/项目资料' } ] },
+  { g: '安装包', icon: 'package', tgt: '整理/安装包', count: 58, size: '2.2 GB', items: [
+    { n: 'WeChatMac.dmg', s: '312 MB', src: '下载', cf: 'WeChatMac 2.dmg' },
+    { n: 'python-3.12.6-amd64.exe', s: '26 MB', src: '下载' } ] },
+  { g: '其他文件', icon: 'file', tgt: '整理/其他文件', count: 149, size: '120 MB', items: [
+    { n: 'notes.md', s: '4 KB', src: '下载' },
+    { n: '导出数据.csv', s: '2.3 MB', src: '下载' } ] },
+  { g: '不处理', skip: true, icon: 'x', count: 42, size: '4.4 GB', items: [
+    { n: 'ubuntu-24.04.iso.crdownload', s: '3.9 GB', src: '下载', why: '还没下载完' },
+    { n: '~$年度预算.xlsx', s: '1 KB', src: '下载', why: 'Office 临时文件' },
+    { n: '.DS_Store', s: '6 KB', src: '下载', why: '系统文件' },
+    { n: '会议录音.m4a', s: '38 MB', src: '下载', why: '正在被其他程序使用' },
+    { n: '项目资料 的替身', s: '1 KB', src: '下载', why: '快捷方式或链接' } ] },
+];
+PV.forEach((g, gi) => g.items.forEach((it, ii) => it.id = gi + '-' + ii));
+const sizeMB = s => { const [v, u] = s.split(' '); return +v * ({ KB: 1 / 1024, MB: 1, GB: 1024 }[u]); };
+const fmtSize = mb => mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : mb >= 1 ? Math.round(mb) + ' MB' : Math.round(mb * 1024) + ' KB';
+
+function pvRow(g, it) {
+  const ex = S.excluded.has(it.id);
+  const full = `<div class="pfull path">${SRC[it.src]}/${it.n}${g.skip ? '' : `<br>→ ~/Documents/${g.tgt}/${it.cf || it.n}`}</div>`;
+  const chg = g.skip
+    ? `<div class="pchg" data-expand><span class="from">${ic('folder')}${it.src}</span><span class="faint" style="font-size:12px">保持不动</span>${full}</div>`
+    : `<div class="pchg" data-expand><span class="from">${ic('folder')}${it.src}</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="to">${ic('folder')}${g.tgt}</span>${full}</div>`;
+  const op = g.skip ? `<span class="badge c-skip">跳过</span>` : it.cf ? `<span class="badge c-warn">移动并改名</span>` : `<span class="badge c-move">移动</span>`;
+  const st = g.skip ? `<span class="stx">${it.why}</span>` : it.cf ? `<span class="stx warn">重名，改为“${it.cf}”</span>` : ex ? `<span class="stx">你已排除</span>` : `<span class="stx faint">—</span>`;
+  return `<div class="tr row ${ex ? 'ex' : ''}">
+    <div>${g.skip ? `<span class="chk dis" title="这个文件不能整理"></span>` : `<span class="chk ${ex ? '' : 'on'}" data-item="${it.id}"></span>`}</div>
+    <div class="fname">${ic(g.icon)}<span title="${it.n}">${it.n}</span></div>
+    <div>${chg}</div><div>${op}</div><div class="num right muted">${it.s}</div><div>${st}</div></div>`;
+}
+function renderPreview() {
+  const q = ($('#pvSearch').value || '').trim().toLowerCase();
+  let h = `<div class="tr th"><div><span class="chk ${S.excluded.size ? 'mixed' : 'on'}" id="pvAll" title="全选或取消全选"></span></div><div>文件</div><div>位置变化（点击查看完整路径）</div><div>操作</div><div class="right">大小</div><div>说明</div></div>`;
+  PV.forEach(g => {
+    let items = g.items.filter(it => !q || it.n.toLowerCase().includes(q));
+    if (S.filter === 'conflict') items = items.filter(it => it.cf);
+    if (S.filter === 'skip') items = g.skip ? items : [];
+    if (S.filter === 'ex') items = items.filter(it => S.excluded.has(it.id));
+    if (!items.length) return;
+    if (S.group) {
+      const allEx = !g.skip && g.items.every(it => S.excluded.has(it.id));
+      const someEx = !g.skip && g.items.some(it => S.excluded.has(it.id));
+      h += `<div class="tr grp"><div>${g.skip ? '' : `<span class="chk ${allEx ? '' : someEx ? 'mixed' : 'on'}" data-group="${g.g}"></span>`}</div>
+        <div class="gname" style="grid-column:span 3">${ic(g.icon)}${g.skip ? '不处理的文件' : g.g}<span class="faint num">${fmt(g.count)} 个文件，${g.size}</span>${g.skip ? '' : `<span class="faint">→ ${g.tgt}</span>`}</div><div></div><div></div></div>`;
+    }
+    h += items.map(it => pvRow(g, it)).join('');
+    if (S.group && S.filter === 'all' && !q) h += `<div class="more num">还有 ${fmt(g.count - g.items.length)} 个文件，滚动时加载</div>`;
+  });
+  if (!h.includes('tr row')) h += `<div class="more" style="padding:28px;text-align:center">没有符合条件的文件。</div>`;
+  $('#pvTable').innerHTML = h;
+  const exN = S.excluded.size;
+  const exMB = PV.flatMap(g => g.items).filter(it => S.excluded.has(it.id)).reduce((a, it) => a + sizeMB(it.s), 0);
+  const n = 1150 - exN, mb = 3.0 * 1024 - exMB;
+  $('#pvCount').textContent = fmt(n); $('#pvSize').textContent = fmtSize(mb);
+  $('#pvEx').textContent = exN; $('#pvExK').textContent = exN;
+  $('#pvFootSum').innerHTML = `已选 <b class="num">${fmt(n)}</b> 个文件，<b class="num">${fmtSize(mb)}</b>。不会删除或覆盖任何文件。`;
+  $('#btnExecText').textContent = `整理 ${fmt(n)} 个文件`;
+  $('#mExecTitle').textContent = `整理 ${fmt(n)} 个文件？`;
+  const expired = $('#t-expired').classList.contains('on');
+  $('#expiredBanner').style.display = expired ? 'flex' : 'none';
+  $('#btnExec').disabled = expired || n === 0;
+}
+$('#pvTable').addEventListener('click', e => {
+  const c = e.target.closest('[data-item]'), gch = e.target.closest('[data-group]'), ex = e.target.closest('[data-expand]');
+  if (c) { const id = c.dataset.item; S.excluded.has(id) ? S.excluded.delete(id) : S.excluded.add(id); renderPreview(); }
+  else if (gch) { const g = PV.find(x => x.g === gch.dataset.group); const all = g.items.every(it => S.excluded.has(it.id)); g.items.forEach(it => all ? S.excluded.delete(it.id) : S.excluded.add(it.id)); renderPreview(); }
+  else if (e.target.closest('#pvAll')) { const any = S.excluded.size > 0; S.excluded.clear(); if (!any) PV.forEach(g => !g.skip && g.items.forEach(it => S.excluded.add(it.id))); renderPreview(); }
+  else if (ex) ex.classList.toggle('open');
+});
+$('#pvSearch').addEventListener('input', renderPreview);
+$('#pvFilter').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; setFilter(b.dataset.f); });
+function setFilter(f) { S.filter = f; $$('#pvFilter button').forEach(x => x.classList.toggle('on', x.dataset.f === f)); renderPreview(); }
+$$('[data-filter]').forEach(b => b.addEventListener('click', () => setFilter(b.dataset.filter)));
+$('#pvGroup').addEventListener('click', e => { S.group = !S.group; e.currentTarget.classList.toggle('on', S.group); renderPreview(); });
+$('#btnExec').addEventListener('click', () => openModal('mExec'));
+$('#mExecGo').addEventListener('click', () => { closeModal(); go('exec'); });
+
+/* ---------- duplicates ---------- */
+const DUP = [
+  { size: 612, files: [{ n: '发布会录屏.mp4', p: '~/Downloads', t: '9月12日', rec: 1 }, { n: '发布会录屏 (1).mp4', p: '~/Downloads', t: '9月18日' }, { n: '发布会录屏.mp4', p: '~/Desktop/待整理', t: '9月20日' }] },
+  { size: 312, files: [{ n: 'WeChatMac.dmg', p: '~/Downloads', t: '8月02日', rec: 1 }, { n: 'WeChatMac (2).dmg', p: '~/Downloads', t: '9月30日' }] },
+  { size: 4.8, files: [{ n: '合同扫描件（盖章版）.pdf', p: '~/Desktop', t: '9月25日', rec: 1 }, { n: '合同扫描件（盖章版）.pdf', p: '~/Downloads', t: '9月26日' }] },
+  { size: 2.9, files: [{ n: 'IMG_2041.HEIC', p: '~/Downloads/微信文件', t: '10月01日', rec: 1 }, { n: 'IMG_2041 copy.HEIC', p: '~/Desktop', t: '10月02日' }] },
+];
+const keep = DUP.map(() => -1);
+function renderDup() {
+  $('#dupList').innerHTML = DUP.map((g, gi) => `<div class="dgroup ${keep[gi] < 0 ? 'need' : ''}">
+    <div class="dgh">${ic('copy')}<b>第 ${gi + 1} 组</b><span class="faint num">${g.files.length} 个相同的文件，每个 ${fmtSize(g.size)}</span>
+      <div class="r">${keep[gi] < 0 ? `<span class="badge c-warn">请选择保留哪一份</span>` : `<span class="badge c-ok">已决定</span>`}</div></div>
+    ${g.files.map((f, fi) => {
+      const k = keep[gi] === fi, decided = keep[gi] >= 0;
+      return `<div class="dfile ${k ? 'keep' : ''}"><span class="radio ${k ? 'on' : ''}" data-keep="${gi}-${fi}" title="保留这一份"></span>
+        <div class="fname">${ic('file')}<span>${f.n}</span>${f.rec ? `<span class="badge c-move">推荐保留：最早的一份</span>` : ''}</div>
+        <div class="path">${f.p}</div><div class="faint">修改于 ${f.t}</div>
+        <div>${!decided ? '<span class="stx faint">待选择</span>' : k ? '<span class="badge c-ok">保留</span>' : '<span class="badge c-quar">进入隔离区</span>'}</div></div>`;
+    }).join('')}</div>`).join('');
+  const done = keep.filter(k => k >= 0).length;
+  const q = DUP.reduce((a, g, i) => a + (keep[i] >= 0 ? g.files.length - 1 : 0), 0);
+  const free = DUP.reduce((a, g, i) => a + (keep[i] >= 0 ? g.size * (g.files.length - 1) : 0), 0);
+  $('#dupDone').textContent = `${done} / ${DUP.length}`; $('#dupQ').textContent = `${q} 个`; $('#dupFree').textContent = free ? fmtSize(free) : '0 B';
+  const left = DUP.length - done;
+  $('#dupSum').innerHTML = left ? `还有 <b>${left}</b> 组没有选择保留项。` : `每组保留 1 份，<b>${q}</b> 个文件进入隔离区，可以随时恢复。`;
+  $('#btnDupExec').disabled = left > 0;
+  $('#btnDupText').textContent = q ? `隔离 ${q} 个重复文件` : '隔离重复文件';
+}
+$('#dupList').addEventListener('click', e => { const r = e.target.closest('[data-keep]'); if (!r) return; const [g, f] = r.dataset.keep.split('-').map(Number); keep[g] = f; renderDup(); });
+$('#btnRec').addEventListener('click', () => { DUP.forEach((g, i) => keep[i] = g.files.findIndex(f => f.rec)); renderDup(); });
+$('#btnDupExec').addEventListener('click', () => go('exec'));
+
+/* ---------- exec ---------- */
+const EX_FILES = [['2026 年度预算.xlsx', '下载', '整理/文档', 'file'], ['IMG_2041.HEIC', '下载/微信文件', '整理/图片', 'image'], ['素材包.zip', '下载', '整理/压缩包', 'archive'], ['播客 第 18 期.mp3', '下载', '整理/音频', 'music'], ['产品路线图 v3.pptx', '下载', '整理/文档', 'file']];
+let EX = {};
+function startExec() {
+  EX = { total: 1150, done: 0, ok: 0, skip: 0, fail: 0, stopping: false, result: 'partial' };
+  $('#exTitle').textContent = '正在整理'; $('#exProg').classList.remove('stopping');
+  $('#exStopNote').classList.remove('on'); $('#exSub').style.display = 'none'; $('#exCurLabel').textContent = '当前文件';
+  $('#btnStop').disabled = false; $('#btnStop').querySelector('span').textContent = '停止整理';
+  let k = 0;
+  timers.push(setInterval(execTick = () => {
+    if (EX.stopping) return;
+    const step = 9 + Math.round(Math.random() * 8);
+    EX.done = Math.min(EX.total, EX.done + step);
+    EX.fail = Math.round(EX.done / EX.total * 12); EX.skip = 0; EX.ok = EX.done - EX.fail;
+    const f = EX_FILES[k++ % EX_FILES.length];
+    $('#exCur').textContent = f[0]; $('#exFrom').textContent = f[1]; $('#exTo').textContent = f[2];
+    paintExec();
+    if (EX.done >= EX.total) { stopTimers(); setTimeout(() => go('result'), 500); }
+  }, 70));
+}
+function paintExec() {
+  const pct = Math.floor(EX.done / EX.total * 100);
+  $('#exPct').textContent = pct + '%'; $('#exBar').style.width = pct + '%';
+  $('#exDone').textContent = `${fmt(EX.done)} / ${fmt(EX.total)} 个文件`;
+  $('#exEta').textContent = EX.stopping ? '正在停止' : `预计还需 ${Math.max(1, Math.round((EX.total - EX.done) / 140))} 秒`;
+  $('#exOk').textContent = fmt(EX.ok); $('#exSkip').textContent = fmt(EX.skip); $('#exFail').textContent = fmt(EX.fail);
+}
+$('#btnStop').addEventListener('click', () => { $('#mStopN').textContent = fmt(EX.ok); openModal('mStop'); });
+$('#mStopGo').addEventListener('click', () => {
+  closeModal(); EX.stopping = true; EX.result = 'cancelled';
+  $('#exTitle').textContent = '正在停止'; $('#exProg').classList.add('stopping');
+  $('#exStopNote').classList.add('on'); $('#exCurLabel').textContent = '正在完成当前文件';
+  $('#exCur').textContent = '发布会录屏.mp4（612 MB）'; $('#exFrom').textContent = '下载'; $('#exTo').textContent = '外置硬盘/整理/视频';
+  $('#exSub').style.display = 'block'; $('#btnStop').disabled = true; $('#btnStop').querySelector('span').textContent = '正在停止…';
+  paintExec();
+  let p = 40;
+  timers.push(setInterval(() => { p += 6; $('#exSubBar').style.width = Math.min(100, p) + '%'; if (p >= 100) { EX.ok++; EX.done++; stopTimers(); setTimeout(() => go('result'), 400); } }, 90));
+});
+
+/* ---------- result ---------- */
+function renderResult() {
+  const c = EX.result === 'cancelled';
+  const ok = c ? EX.ok || 482 : 1138, fail = c ? EX.fail || 5 : 12;
+  $('#resHero').innerHTML = c
+    ? `<div class="ic" style="--c:var(--warn)">${ic('stop', 'lg')}</div><div><h1>已停止整理，${fmt(ok)} 个文件已完成</h1><p>剩下的 ${fmt(1150 - ok - fail)} 个文件没有处理。可以撤销已完成的部分，或再运行一次。</p></div>`
+    : `<div class="ic" style="--c:var(--warn)">${ic('alert', 'lg')}</div><div><h1>整理完成，${fail} 个文件没有成功</h1><p>用时 1 分 12 秒。失败的文件留在原位置，没有任何改动。</p></div>`;
+  $('#resStats').innerHTML = [['ok', '已移动', fmt(ok)], ['skip', '跳过', '42'], ['fail', '失败', fail], ['move', '已处理大小', c ? '1.3 GB' : '3.0 GB'], ['quar', '进入隔离区', '0 B']]
+    .map(([k, l, v]) => `<div class="c-${k}"><span class="lk"><i></i>${l}</span><b class="num">${v}</b></div>`).join('');
+  $('#resUndoText').textContent = `${fmt(ok)} 个已移动的文件都可以放回原位置。撤销前会先显示预览，你可以只恢复部分文件。`;
+}
+
+/* ---------- history ---------- */
+const HIST = [
+  { n: '下载文件夹按类型整理', t: '今天 19:42', src: '下载', c: '1,150 个文件', st: ['c-warn', '部分成功'], u: ['c-undo', '可撤销'], icon: 'download', on: 1 },
+  { n: '撤销：图片按日期归档', t: '昨天 22:10', src: '图片', c: '326 个文件', st: ['c-ok', '完成'], u: null, icon: 'undo' },
+  { n: '图片按日期归档', t: '昨天 21:58', src: '图片', c: '326 个文件', st: ['c-ok', '完成'], u: ['c-skip', '已撤销'], icon: 'calendar' },
+  { n: '旧安装包清理', t: '10月1日 10:05', src: '下载', c: '14 个文件', st: ['c-ok', '完成'], u: ['c-undo', '可撤销'], icon: 'package' },
+  { n: '重复文件查找', t: '9月28日 16:40', src: '下载、桌面', c: '6 个文件', st: ['c-skip', '已停止'], u: ['c-undo', '可撤销'], icon: 'copy' },
+  { n: '下载文件夹按类型整理', t: '9月20日 09:12', src: '下载', c: '0 个文件', st: ['c-fail', '失败'], u: ['c-skip', '无需撤销'], icon: 'download' },
+];
+$('#hList').innerHTML = HIST.map(h => `<div class="hitem ${h.on ? 'on' : ''}"><div class="ic">${ic(h.icon)}</div>
+  <div class="hm"><b>${h.n}</b><div class="sub">${h.t}，来源：${h.src}</div><div class="tags"><span class="badge ${h.st[0]}">${h.st[1]}</span>${h.u ? `<span class="badge ${h.u[0]}">${h.u[1]}</span>` : ''}</div></div>
+  <div class="n num">${h.c}</div></div>`).join('');
+$('#hList').addEventListener('click', e => { const it = e.target.closest('.hitem'); if (!it) return; $$('.hitem').forEach(x => x.classList.toggle('on', x === it)); });
+const OPS = {
+  move: [['2026 年度预算.xlsx', '~/Downloads', '~/Documents/整理/文档', 'c-move', '已移动'], ['报价单.pdf', '~/Downloads', '~/Documents/整理/文档/报价单 2.pdf', 'c-warn', '已改名'], ['IMG_2041.HEIC', '~/Downloads/微信文件', '~/Documents/整理/图片', 'c-move', '已移动'], ['素材包.zip', '~/Downloads', '~/Documents/整理/压缩包', 'c-move', '已移动']],
+  skip: [['ubuntu-24.04.iso.crdownload', '~/Downloads', '还没下载完', 'c-skip', '跳过'], ['.DS_Store', '~/Downloads', '系统文件', 'c-skip', '跳过']],
+  fail: [['发布会录屏.mp4', '~/Downloads', '文件正在被其他程序使用', 'c-fail', '失败'], ['项目归档 2025.zip', '~/Downloads', '目标磁盘空间不足', 'c-fail', '失败']],
+  quar: [],
+};
+function renderOps(t) {
+  const rows = OPS[t];
+  $('#hOps').innerHTML = rows.length ? rows.map(r => `<div class="oprow"><div class="fname">${ic('file')}<span>${r[0]}</span></div>
+    <div class="pchg"><span class="path">${r[1]}</span>${t === 'move' ? `<svg class="i sm ar"><use href="#i-arrow"/></svg><span class="path" style="color:var(--text)">${r[2]}</span>` : `<span class="stx" style="margin-left:6px">${r[2]}</span>`}</div>
+    <div><span class="badge ${r[3]}">${r[4]}</span></div></div>`).join('')
+    : `<div class="more" style="padding:28px;text-align:center">这次整理没有文件进入隔离区。</div>`;
+}
+renderOps('move');
+$('#hTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('#hTabs button').forEach(x => x.classList.toggle('on', x === b)); renderOps(b.dataset.t); });
+
+/* ---------- undo ---------- */
+const UNDO = [
+  ['2026 年度预算.xlsx', '~/Documents/整理/文档', '~/Downloads', 'ok'], ['IMG_2041.HEIC', '~/Documents/整理/图片', '~/Downloads/微信文件', 'ok'], ['素材包.zip', '~/Documents/整理/压缩包', '~/Downloads', 'ok'],
+  ['报价单 2.pdf', '~/Documents/整理/文档', '~/Downloads/报价单（已恢复）.pdf', 'rename'],
+  ['会议纪要 10-02.docx', '~/Documents/整理/文档', '~/Downloads/项目资料', 'changed'],
+  ['design-ref.webp', '~/Documents/整理/图片', '~/Downloads', 'missing'],
+];
+const UST = { ok: ['c-undo', '放回原位置', ''], rename: ['c-warn', '改名恢复', '原位置已有同名文件'], changed: ['c-skip', '默认跳过', '整理后被修改过。勾选后会恢复修改后的版本'], missing: ['c-fail', '无法恢复', '文件已不在整理后的位置'] };
+const uSel = UNDO.map(u => u[3] === 'ok' || u[3] === 'rename');
+function renderUndo() {
+  $('#undoTable').innerHTML = `<div class="tr th"><div><span class="chk mixed"></span></div><div>文件</div><div>恢复路径</div><div>结果</div><div></div><div>说明</div></div>` +
+    UNDO.map((u, i) => { const st = UST[u[3]], dis = u[3] === 'missing';
+      return `<div class="tr row" style="${uSel[i] ? '' : 'opacity:.6'}"><div><span class="chk ${dis ? 'dis' : uSel[i] ? 'on' : ''}" data-u="${i}"></span></div>
+      <div class="fname">${ic('file')}<span style="text-decoration:none">${u[0]}</span></div>
+      <div class="pchg" style="--c:var(--undo)"><span class="path">${u[1]}</span><svg class="i sm ar"><use href="#i-arrow"/></svg><span class="path" style="color:var(--text)">${u[2]}</span></div>
+      <div><span class="badge ${st[0]}">${st[1]}</span></div><div></div><div class="stx">${st[2] || '—'}</div></div>`; }).join('') +
+    `<div class="more num">还有 1,132 个文件，滚动时加载</div>`;
+  const n = 1126 + uSel.slice(4).filter(Boolean).length - uSel.slice(0, 4).filter(x => !x).length;
+  $('#undoSel').textContent = fmt(n); $('#btnUndoText').textContent = `恢复 ${fmt(n)} 个文件`;
+}
+renderUndo();
+$('#undoTable').addEventListener('click', e => { const c = e.target.closest('[data-u]'); if (!c || c.classList.contains('dis')) return; uSel[+c.dataset.u] = !uSel[+c.dataset.u]; renderUndo(); });
+$('#btnUndo').addEventListener('click', () => { go('history'); toast('已恢复 1,126 个文件。这次撤销也记入了整理历史。'); });
+
+/* ---------- quarantine ---------- */
+const Q = [
+  ['Zoom_6.0.2.pkg', '~/Downloads', '旧安装包，142 天未修改', '8月25日', '98 MB', '已超过 30 天', 1],
+  ['Setup_v2.3.exe', '~/Downloads', '旧安装包，210 天未修改', '8月25日', '64 MB', '已超过 30 天', 1],
+  ['node-v20.11.0.pkg', '~/Downloads', '旧安装包，260 天未修改', '8月25日', '72 MB', '已超过 30 天', 1],
+  ['发布会录屏 (1).mp4', '~/Downloads', '重复文件，保留了“~/Downloads/发布会录屏.mp4”', '9月28日', '612 MB', '10月28日', 0],
+  ['发布会录屏.mp4', '~/Desktop/待整理', '重复文件，保留了“~/Downloads/发布会录屏.mp4”', '9月28日', '612 MB', '10月28日', 0],
+  ['WeChatMac (2).dmg', '~/Downloads', '重复文件，保留了“~/Downloads/WeChatMac.dmg”', '9月28日', '312 MB', '10月28日', 0],
+  ['Figma-124.3.dmg', '~/Downloads', '旧安装包，97 天未修改', '10月1日', '228 MB', '10月31日', 0],
+  ['VSCodeUserSetup.exe', '~/Downloads', '旧安装包，120 天未修改', '10月1日', '96 MB', '10月31日', 0],
+];
+const qSel = new Set();
+function renderQuar() {
+  $('#qTable').innerHTML = `<div class="qr th"><div><span class="chk ${qSel.size ? 'mixed' : ''}" id="qAll"></span></div><div>文件</div><div>原位置</div><div>为什么在这里</div><div>隔离时间</div><div class="right">大小</div><div>建议处理</div></div>` +
+    Q.map((q, i) => `<div class="qr row ${qSel.has(i) ? 'sel' : ''}"><div><span class="chk ${qSel.has(i) ? 'on' : ''}" data-q="${i}"></span></div>
+    <div class="fname">${ic(q[0].match(/mp4/) ? 'video' : 'package')}<span>${q[0]}</span></div><div class="path">${q[1]}</div>
+    <div class="stx">${q[2]}</div><div class="faint">${q[3]}</div><div class="num right muted">${q[4]}</div>
+    <div>${q[6] ? `<span class="badge c-quar">${q[5]}</span>` : `<span class="faint" style="font-size:12px">${q[5]} 前</span>`}</div></div>`).join('');
+  const mb = [...qSel].reduce((a, i) => a + sizeMB(Q[i][4]), 0);
+  $('#qSel').classList.toggle('on', qSel.size > 0);
+  $('#qSelN').textContent = qSel.size; $('#qSelS').textContent = fmtSize(mb);
+  $('#mTrashTitle').textContent = `把 ${qSel.size} 个文件移入系统回收站？`;
+  $('#mTrashGo').textContent = `移入回收站（${qSel.size} 个）`;
+}
+renderQuar();
+$('#qTable').addEventListener('click', e => { const c = e.target.closest('[data-q]'); if (c) { const i = +c.dataset.q; qSel.has(i) ? qSel.delete(i) : qSel.add(i); } else if (e.target.closest('#qAll')) { qSel.size ? qSel.clear() : Q.forEach((_, i) => qSel.add(i)); } else return; renderQuar(); });
+$('#qOld').addEventListener('click', () => { qSel.clear(); Q.forEach((q, i) => q[6] && qSel.add(i)); renderQuar(); });
+$('#qRestore').addEventListener('click', () => { const n = qSel.size; qSel.clear(); renderQuar(); toast(`已把 ${n} 个文件放回原位置`); });
+$('#mTrashGo').addEventListener('click', () => { const n = qSel.size; closeModal(); qSel.clear(); renderQuar(); toast(`已把 ${n} 个文件移入系统回收站`); });
+
+/* ---------- modal / toast ---------- */
+function openModal(id) { $('#scrim').classList.add('on'); $$('.modal').forEach(m => m.classList.toggle('on', m.id === id)); }
+function closeModal() { $('#scrim').classList.remove('on'); }
+let toastT;
+function toast(msg) { $('#toastText').textContent = msg; $('#toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('#toast').classList.remove('on'), 2600); }
+$('#scrim').addEventListener('click', e => { if (e.target.id === 'scrim' || e.target.closest('[data-close]')) { const t = e.target.closest('[data-toast]'); closeModal(); if (t) toast(t.dataset.toast); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ---------- onboarding ---------- */
+function onbStep(i) { $$('.onb-page').forEach(p => p.classList.toggle('on', +p.dataset.p === i)); $$('.onb-dots i').forEach((d, j) => d.classList.toggle('on', j <= i)); }
+$$('[data-onb]').forEach(b => b.addEventListener('click', () => onbStep(+b.dataset.onb)));
+$('#onbTiles').addEventListener('click', e => { const t = e.target.closest('.tile:not(.add)'); if (!t) return; t.classList.toggle('on'); t.querySelector('.chk').classList.toggle('on'); });
+$('#onbFinish').addEventListener('click', () => go('scan', { preset: 'A' }));
+
+/* ---------- global wiring ---------- */
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-go]');
+  if (g && !g.disabled && !g.closest('#onbPresets')) { go(g.dataset.go, { preset: g.dataset.preset }); return; }
+  const n = e.target.closest('[data-nav]');
+  if (n) { go(n.dataset.nav); return; }
+  const m = e.target.closest('[data-modal]');
+  if (m) { openModal(m.dataset.modal); return; }
+  const t = e.target.closest('[data-toggle]');
+  if (t) t.classList.toggle('on');
+  const cat = e.target.closest('.cat');
+  if (cat) {
+    const on = cat.classList.toggle('on'); cat.querySelector('.chk').classList.toggle('on', on);
+    const tn = cat.dataset.cat && $(`[data-tcat="${cat.dataset.cat}"]`); if (tn) tn.classList.toggle('off', !on);
+    if (S.view === 'config' && S.preset === 'A') {
+      const n = $$('#paramBody .cat.on').length;
+      $('#btnScan').disabled = n === 0;
+      $('#cfgSum').innerHTML = n ? `1 个文件夹，${n} 种类型` : `<span style="color:var(--fail)">至少开启一种类型</span>`;
+    }
+  }
+  if (e.target.closest('[data-back-flow]') && S.flowView) go(S.flowView);
+  const sg = e.target.closest('.seg button');
+  if (sg && !sg.closest('#pvFilter') && !sg.closest('#themeSeg')) $$('button', sg.parentElement).forEach(b => b.classList.toggle('on', b === sg));
+});
+$('#btnCancelScan').addEventListener('click', () => go('config'));
+$('#t-expired').addEventListener('click', e => { e.currentTarget.classList.toggle('on'); go('preview'); });
+$('#t-cfgerr').addEventListener('click', e => { S.cfgErr = !S.cfgErr; e.currentTarget.classList.toggle('on', S.cfgErr); go('config', { preset: 'A' }); });
+$('#t-recover').addEventListener('click', e => { const on = e.currentTarget.classList.toggle('on'); $('#recoverBanner').style.display = on ? 'flex' : 'none'; go('home'); });
+function setTheme(t) { S.theme = t; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; $$('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.th === t)); }
+$('#t-theme').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+$('#themeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTheme(b.dataset.th); });
+
+/* ---------- 启动参数：#视图+标记，用于导出静态设计稿，例如 #quar+sel+light ---------- */
+const [initial, ...flags] = location.hash.slice(1).split('+');
+const has = f => flags.includes(f);
+if (has('shot')) { $('#proto').style.display = 'none'; document.body.style.minWidth = '0'; document.body.style.background = 'var(--bg)'; $('.stage').style.padding = '0'; $('#win').style.borderRadius = '0'; }
+if (has('light')) setTheme('light');
+if (has('expired')) $('#t-expired').classList.add('on');
+if (has('recover')) $('#recoverBanner').style.display = 'flex';
+S.cfgErr = has('cfgerr');
+setPreset(['A', 'B', 'C', 'D'].find(has) || 'A');
+if (has('decided')) DUP.forEach((g, i) => keep[i] = g.files.findIndex(f => f.rec));
+if (has('cancelled')) EX = { result: 'cancelled', ok: 482, fail: 5 };
+if (has('excl')) ['0-1', '0-4', '2-1'].forEach(id => S.excluded.add(id));
+go(initial || 'home');
+if (has('conflict')) setFilter('conflict');
+if (has('expand')) $$('#pvTable [data-expand]').slice(0, 2).forEach(x => x.classList.add('open'));
+if (has('sel')) $('#qOld').click();
+if (has('o1')) onbStep(1);
+if (has('o2')) onbStep(2);
+if (has('freeze')) {
+  stopTimers();
+  if (initial === 'scan') for (let i = 0; i < 19; i++) scanTick();
+  if (initial === 'exec') {
+    for (let i = 0; i < 38; i++) execTick();
+    if (has('stopping')) { $('#mStopGo').click(); stopTimers(); $('#exSubBar').style.width = '64%'; }
+  }
+}
+const m = flags.find(f => f.startsWith('m-')); if (m) { if (m === 'm-mTrash') $('#qOld').click(); openModal(m.slice(2)); }
+</script>
+</body>
+</html>
