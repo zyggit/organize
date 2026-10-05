@@ -78,8 +78,34 @@ def audit_source():
     return {'status': 'passed', 'sourceEntriesScanned': count, 'rules': sorted(RULES)}
 
 
-def audit_app(app):
+def inspect_frozen_entry(name, data):
+    try:
+        return inspect_blob(name, data)
+    except RuntimeError as error:
+        # Only dependency entry names are diagnostic; never print matched bytes.
+        safe = (len(name) < 200 and re.fullmatch(r'[A-Za-z0-9_./-]+', name)
+                and not any(p.search(name.encode()) for p in PATTERNS.values()))
+        label = name if safe else '<redacted entry>'
+        raise RuntimeError(f'{error}; frozen entry: {label}') from None
+
+
+def audit_engine(engine_path):
     from PyInstaller.archive.readers import CArchiveReader
+    count = 0
+    engine = CArchiveReader(str(engine_path))
+    for name, entry in engine.toc.items():
+        if entry[-1] == 'z':
+            archive = engine.open_embedded_archive(name)
+            for module in archive.toc:
+                data = archive.extract(module, raw=True)
+                if data is not None:
+                    count += inspect_frozen_entry(module, data)
+        else:
+            count += inspect_frozen_entry(name, engine.extract(name))
+    return count
+
+
+def audit_app(app):
     count = 0
     for path in app.rglob('*'):
         if path.is_symlink():
@@ -87,16 +113,7 @@ def audit_app(app):
                 raise RuntimeError('Privacy audit failed: external bundle symlink')
         elif path.is_file():
             count += inspect_blob(str(path.relative_to(app)), path.read_bytes())
-    engine = CArchiveReader(str(app / 'Contents/MacOS/organize-engine'))
-    for name, entry in engine.toc.items():
-        if entry[-1] == 'z':
-            archive = engine.open_embedded_archive(name)
-            for module in archive.toc:
-                data = archive.extract(module, raw=True)
-                if data is not None:
-                    count += inspect_blob(module, data)
-        else:
-            count += inspect_blob(name, engine.extract(name))
+    count += audit_engine(app / 'Contents/MacOS/organize-engine')
     return {'status': 'passed', 'bundleEntriesScanned': count,
             'frozenPythonArchiveInspected': True, 'rules': sorted(RULES),
             'method': 'clean CI build; data-file denylist; decompressed secret/path scan'}
@@ -104,11 +121,13 @@ def audit_app(app):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', action='store_true')
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--source', action='store_true')
+    mode.add_argument('--engine', type=Path)
     args = parser.parse_args()
-    if not args.source:
-        parser.error('Use --source; bundle audit is called by prepare-desktop-release.py')
-    print(json.dumps(audit_source(), sort_keys=True))
+    result = audit_source() if args.source else {
+        'status': 'passed', 'frozenEntriesScanned': audit_engine(args.engine)}
+    print(json.dumps(result, sort_keys=True))
 
 
 if __name__ == '__main__':

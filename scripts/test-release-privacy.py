@@ -29,6 +29,15 @@ class PrivacyTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 privacy.inspect_blob('resource', secret)
 
+    def test_frozen_diagnostic_does_not_echo_secret_or_private_entry_path(self):
+        secret = b'sk-proj-' + b'B' * 50
+        private_name = '/Users/' + 'private-user/file'
+        with self.assertRaises(RuntimeError) as caught:
+            privacy.inspect_frozen_entry(private_name, secret)
+        self.assertNotIn(private_name, str(caught.exception))
+        self.assertNotIn(secret.decode(), str(caught.exception))
+        self.assertIn('<redacted entry>', str(caught.exception))
+
     def test_data_files_and_traversal_fail(self):
         for name in ['journal.db', 'diagnostic.log', '.env', '.ssh/id_rsa', '../private', 'signing.p12']:
             with self.assertRaises(RuntimeError):

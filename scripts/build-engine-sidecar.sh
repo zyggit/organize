@@ -67,4 +67,8 @@ target_binary="$tauri_binaries/organize-engine-$target_triple$extension"
 cp "$source_binary" "$target_binary"
 chmod +x "$target_binary"
 
+if [[ "${GITHUB_ACTIONS:-false}" == true ]]; then
+  "$venv_dir/bin/python" "$repo_root/scripts/check-release-privacy.py" --engine "$target_binary"
+fi
+
 echo "Engine sidecar: $target_binary"
