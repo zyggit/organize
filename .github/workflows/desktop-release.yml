@@ -41,7 +41,7 @@ jobs:
           npm ci --prefix apps/desktop
           # Standalone runtime avoids upstream Framework __FILE__ home paths.
           uv python install --no-bin 3.11.15
-          uv venv --managed-python --python 3.11.15 build/desktop-python
+          uv venv --seed --managed-python --python 3.11.15 build/desktop-python
           build/desktop-python/bin/python -m pip install -r scripts/desktop-build-requirements.txt
           build/desktop-python/bin/python -m pip install --no-deps --no-build-isolation -e .
           build/desktop-python/bin/python -m pip check
