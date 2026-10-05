@@ -1,5 +1,5 @@
 # Reviewed macOS sidecar dependency versions. Keep in sync with legal notices.
-# Python 3.11 is used in CI; do not resolve newer runtime dependencies on release.
+# Standalone CPython 3.11.15 is pinned in CI; do not resolve newer dependencies on release.
 pip==26.0.1
 setuptools==80.9.0
 wheel==0.45.1

@@ -104,6 +104,8 @@ the first successful run, verify the Release's Assets contain
 download entry will enable automatically.
 
 macOS freezing strips third-party native debug symbols to remove upstream build paths.
+CI pins the standalone CPython 3.11.15 runtime in an isolated build directory rather
+than copying a locally installed Python Framework with personal build paths.
 Release privacy checks scan tracked source, the actual app bundle, decompressed
 PyInstaller modules and bundled ZIP/crate contents for personal home paths and
 recognizable credential patterns. Runtime databases/logs, private credential
