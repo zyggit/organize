@@ -15,7 +15,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES = {
-    'personal-home-path': rb'(?:\x2fUsers\x2f(?!runner(?:\x2f|\x00))[^/\s\x00"\'<>]+/|\x2fhome\x2f(?!runner(?:\x2f|\x00))[^/\s\x00"\'<>]+/|[A-Za-z]:\\Users\\(?!runner\\)[^\\\s\x00]+\\)',
+    'personal-home-path': rb'(?:\x2fUsers\x2f(?!runner(?:\x2f|\x00))[^/\s\x00"\'<>]+/|\x2fhome\x2f(?!runner(?:\x2f|\x00))[^/\s\x00"\'<>]+/|[A-Za-z]:\\Users\\(?!runner\\)[^\\\s\x00"\'<>]+\\)',
     'github-token': rb'(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,})',
     'aws-access-key': rb'(?:AKIA|ASIA)[A-Z0-9]{16}',
     'openai-key': rb'sk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{40,}',

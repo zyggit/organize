@@ -19,6 +19,11 @@ class PrivacyTests(unittest.TestCase):
     def test_ci_runner_path_is_not_a_personal_path(self):
         self.assertEqual(privacy.inspect_blob('module.pyc', b'/Users/runner/work/organize/code.py'), 1)
 
+    def test_documentation_placeholder_is_not_a_real_windows_username(self):
+        self.assertEqual(privacy.inspect_blob('module.pyc', b'C:\\Users\\<username>\\AppData'), 1)
+        with self.assertRaisesRegex(RuntimeError, 'personal-home-path'):
+            privacy.inspect_blob('module.pyc', b'C:\\Users\\private-user\\AppData')
+
     def test_tokens_fail(self):
         for secret in [b'ghp_' + b'A' * 36, b'AKIA' + b'A' * 16, b'sk-proj-' + b'B' * 50]:
             with self.assertRaises(RuntimeError):
