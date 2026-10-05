@@ -103,6 +103,16 @@ the first successful run, verify the Release's Assets contain
 `Organize-macos-arm64.dmg`, `SHA256SUMS.txt` and `build-info.json`; the website's
 download entry will enable automatically.
 
+Release privacy checks scan tracked source, the actual app bundle, decompressed
+PyInstaller modules and bundled ZIP/crate contents for personal home paths and
+recognizable credential patterns. Runtime databases/logs, private credential
+files and external bundle links fail the build. No matched values are printed.
+Only the DMG, checksum list, build metadata and aggregate `privacy-audit.json`
+are uploaded, never a local build, user configuration, environment dump or
+diagnostic archive. Clean GitHub-hosted runners build the published installer.
+These checks are defense in depth; do not commit secrets and do not treat pattern
+matching as a guarantee against every possible unknown secret format.
+
 ## Application icon
 
 The approved O-and-folder master artwork is `app-icon.png`. Generate the

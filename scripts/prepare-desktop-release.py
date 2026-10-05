@@ -1,5 +1,6 @@
 """Verify the real macOS bundle, then stage stable-named GitHub release assets."""
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,9 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_NAME = 'Organize-macos-arm64.dmg'
+privacy_spec = importlib.util.spec_from_file_location('privacy_audit', ROOT / 'scripts/check-release-privacy.py')
+privacy = importlib.util.module_from_spec(privacy_spec)
+privacy_spec.loader.exec_module(privacy)
 
 
 def validate_version(response, expected_core):
@@ -30,6 +34,7 @@ def main():
     config = json.loads((desktop / 'src-tauri/tauri.conf.json').read_text())
     bundle = desktop / 'src-tauri/target/release/bundle'
     app = bundle / 'macos/Organize.app'
+    privacy_report = privacy.audit_app(app)
     info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
     if info['CFBundleShortVersionString'] != config['version']:
         raise RuntimeError('App/config version mismatch')
@@ -76,6 +81,7 @@ def main():
         'signing': 'ad-hoc', 'notarized': False,
         'asset': ASSET_NAME, 'sha256': digest,
     }, ensure_ascii=False, indent=2) + '\n')
+    (output / 'privacy-audit.json').write_text(json.dumps(privacy_report, indent=2) + '\n')
     print(f'Verified release assets: {output}')
 
 

@@ -22,7 +22,7 @@
       const store = useAppStore(pinia)
       store.engineReady = true
       store.choosePreset(query.get('preset') ?? 'by-type')
-      store.profile.sourceFolders = ['/Users/demo/Downloads', `/Volumes/团队共享/${'很长的项目目录/'.repeat(5)}素材`]
+      store.profile.sourceFolders = ['/example/Downloads', `/Volumes/团队共享/${'很长的项目目录/'.repeat(5)}素材`]
       store.savedProfiles = [{ ...JSON.parse(JSON.stringify(store.profile)), id: 'saved-1', name: '工作下载整理' }]
       if (query.get('state') === 'issues') {
         const rules = store.profile.parameters.typeRules

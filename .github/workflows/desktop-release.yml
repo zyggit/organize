@@ -44,15 +44,18 @@ jobs:
           build/desktop-python/bin/python -m pip check
       - name: Regression tests
         run: |
+          build/desktop-python/bin/python scripts/check-release-privacy.py --source
+          build/desktop-python/bin/python scripts/test-release-privacy.py
           npm test --prefix apps/desktop
           npm run typecheck --prefix apps/desktop
           build/desktop-python/bin/python -m unittest discover -s engine/tests -v
           build/desktop-python/bin/python -m pytest tests
-          cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml
           build/desktop-python/bin/python scripts/test-desktop-release.py
       - name: Build installer and offline license bundle
         working-directory: apps/desktop
         run: npm run bundle:macos -- --ci
+      - name: Rust regression tests (requires the generated sidecar)
+        run: cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml
       - name: Verify installer, frozen engine and legal resources
         run: |
           build/desktop-python/bin/python scripts/test-license-bundle.py
@@ -60,7 +63,11 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: organize-macos-arm64
-          path: build/desktop-release/
+          path: |
+            build/desktop-release/Organize-macos-arm64.dmg
+            build/desktop-release/SHA256SUMS.txt
+            build/desktop-release/build-info.json
+            build/desktop-release/privacy-audit.json
           if-no-files-found: error
           retention-days: 14
 

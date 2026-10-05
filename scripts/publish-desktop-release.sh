@@ -10,6 +10,7 @@ release_dir="$repo_root/build/desktop-release"
 cd "$release_dir"
 sha256sum --check SHA256SUMS.txt
 test "$(jq -r .commit build-info.json)" = "$GITHUB_SHA"
+test "$(jq -r .status privacy-audit.json)" = passed
 version="$(jq -r .appVersion build-info.json)"
 tag="desktop-v${version}-build.${GITHUB_RUN_NUMBER}-${GITHUB_SHA:0:7}"
 
@@ -33,7 +34,7 @@ Do not disable system security protections. Use a notarized release when require
 SHA256SUMS.txt provides the installer checksum; build-info.json records the exact source commit.
 Source: ${GITHUB_SHA}"
 fi
-gh release upload "$tag" Organize-macos-arm64.dmg SHA256SUMS.txt build-info.json --clobber
+gh release upload "$tag" Organize-macos-arm64.dmg SHA256SUMS.txt build-info.json privacy-audit.json --clobber
 head_sha="$(gh api "repos/$GH_REPO/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)"
 make_latest=false
 if [[ "$head_sha" == "$GITHUB_SHA" ]]; then make_latest=true; fi

@@ -239,7 +239,7 @@ rules:
       - move:
           dest: "~/Documents/{extension.upper()}/{created.strftime('%Y-%m')}/"
           on_conflict: rename_new
-      - copy: "zip:///Users/thomas/Desktop/backup.zip"
+      - copy: "zip:///example/backup.zip"
 ```
 
 </details>-->

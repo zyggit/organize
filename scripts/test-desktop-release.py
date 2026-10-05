@@ -44,6 +44,7 @@ class PublishTests(unittest.TestCase):
             sha = 'a' * 40
             (output / 'build-info.json').write_text(json.dumps({'commit': sha, 'appVersion': '0.1.0'}))
             (output / 'SHA256SUMS.txt').write_text('test checksum')
+            (output / 'privacy-audit.json').write_text(json.dumps({'status': 'passed'}))
             tools = root / 'tools'
             tools.mkdir()
             stub = '''#!/usr/bin/env python3

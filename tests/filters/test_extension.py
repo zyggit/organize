@@ -11,9 +11,9 @@ from organize.filters.extension import Extension
     "path,match,suffix",
     (
         ("/somefile.pdf", True, "pdf"),
-        ("/home/test/somefile.pdf.jpeg", False, "jpeg"),
-        ("/home/test/gif.TXT", False, "txt"),
-        ("/home/test/txt.GIF", True, "gif"),
+        ("/example/somefile.pdf.jpeg", False, "jpeg"),
+        ("/example/gif.TXT", False, "txt"),
+        ("/example/txt.GIF", True, "gif"),
         ("/somefile.pdf", True, "pdf"),
     ),
 )
