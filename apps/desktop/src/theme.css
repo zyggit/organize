@@ -52,6 +52,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .blue { --tone: #99caff; }
 .peach { --tone: #ffd49c; }
 .pink { --tone: #f1a7df; }
+.lilac { --tone: #c4b5fd; }
 .muted { --tone: #c5bbda; }
 .sidebar.locked nav { opacity: .7; }
 .nav-item:disabled, .sidebar-bottom button:disabled, .guard-card button:disabled { cursor: not-allowed; }
@@ -261,7 +262,7 @@ select { padding: 8px 10px; border: 1px solid var(--line-strong); border-radius:
 [data-theme=light] .button.secondary, [data-theme=light] .segments { background: var(--surface-2); border-color: var(--line-strong); }
 [data-theme=light] .segments button.active { background: var(--surface-3); color: var(--text); }
 [data-theme=light] .mint { --tone: #16796f; } [data-theme=light] .blue { --tone: #326eac; }
-[data-theme=light] .peach { --tone: #916000; } [data-theme=light] .pink { --tone: #a83981; } [data-theme=light] .muted { --tone: #76677f; }
+[data-theme=light] .peach { --tone: #916000; } [data-theme=light] .pink { --tone: #a83981; } [data-theme=light] .lilac { --tone: #6d28d9; } [data-theme=light] .muted { --tone: #76677f; }
 [data-theme=light] .op-badge { color: var(--text); }
 [data-theme=light] .plan-list, [data-theme=light] .dialog { background: var(--surface); border-color: var(--line); }
 [data-theme=light] .table-head, [data-theme=light] .q-head, [data-theme=light] .plan-tools, [data-theme=light] .search-box { background: var(--surface-2); border-color: var(--line); }

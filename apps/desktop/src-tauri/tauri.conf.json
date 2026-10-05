@@ -23,7 +23,14 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["$HOME/**", "$APPDATA/**", "$APPLOCALDATA/**", "$TEMP/**", "/tmp/**", "/private/tmp/**", "/var/folders/**"],
+          "deny": []
+        }
+      }
     }
   },
   "bundle": {
@@ -36,7 +43,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/organize-engine"],
+    "externalBin": ["binaries/organize-engine", "binaries/similar-photos"],
     "license": "MIT",
     "licenseFile": "../../../LICENSE.txt",
     "resources": { "../../../legal/generated/": "legal/" },

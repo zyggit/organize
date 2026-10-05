@@ -66,6 +66,7 @@ class DemoApi {
         { id: 'by-date', name: '图片按日期归档', description: '按年和月整理照片与截图。', operation: 'move' },
         { id: 'old-installers', name: '旧安装包清理', description: '腾出被旧安装包占用的空间。', operation: 'quarantine' },
         { id: 'duplicates', name: '重复文件查找', description: '内容逐字节相同才算重复。', operation: 'quarantine' },
+        { id: 'similar-photos', name: '相似照片', description: '找出完全相同和看起来相似的照片，包括旋转或翻转的副本。', operation: 'quarantine' },
       ] as T
     }
     if (method === 'profile.validate') return { valid: true, issues: [] } as T
@@ -82,20 +83,53 @@ class DemoApi {
         await new Promise((resolve) => setTimeout(resolve, 90))
         this.emit('plan.progress', { checked, path: `${profile.sourceFolders[0]}/示例文件-${checked}.pdf` })
       }
-      const items: PlanItem[] = sampleFiles.map(([name, folder, size], index) => ({
-        itemId: `demo-${index}`,
-        sequence: index,
-        operation: profile.presetType === 'old-installers' || profile.presetType === 'duplicates' ? 'quarantine' : 'move',
-        sourcePath: `${profile.sourceFolders[0]}/${name}`,
-        targetPath: `${profile.targetFolder}/${folder}/${index === 2 ? '报价单 2.pdf' : name}`,
-        size: Number(size),
-        selected: profile.presetType !== 'duplicates',
-        status: 'planned',
-        warningCode: index === 2 ? 'TARGET_CONFLICT' : null,
-        reason: null,
-        groupId: profile.presetType === 'duplicates' ? `group-${Math.floor(index / 2)}` : null,
-        metadata: profile.presetType === 'duplicates' ? { recommendedKeep: index % 2 === 0, decision: 'undecided' } : {},
-      }))
+      const photoGroups = profile.presetType === 'similar-photos'
+      const photoFiles = [
+        ['IMG_2041.HEIC', 4032, 3024, 8_420_000, 0],
+        ['IMG_2041 拷贝.HEIC', 4032, 3024, 8_420_000, 0],
+        ['IMG_2042.JPG', 3024, 4032, 3_100_000, 4],
+        ['scene-a.jpg', 1920, 1080, 2_200_000, 0],
+        ['scene-b.jpg', 1280, 720, 900_000, 6],
+      ] as const
+      const items: PlanItem[] = photoGroups
+        ? photoFiles.map(([name, width, height, size, difference], index) => ({
+          itemId: `demo-${index}`,
+          sequence: index,
+          operation: 'quarantine' as const,
+          sourcePath: `${profile.sourceFolders[0]}/${name}`,
+          targetPath: null,
+          size,
+          selected: false,
+          status: 'planned',
+          warningCode: null,
+          reason: difference ? '看起来相似的照片' : '内容完全相同的照片',
+          groupId: index < 3 ? 'group-similar' : 'group-other',
+          metadata: {
+            kind: 'similar',
+            difference,
+            width,
+            height,
+            modifiedMs: Date.now() - index * 1000,
+            previewPath: '',
+            recommendedKeep: index === 0 || index === 3,
+            recommendedRule: 'resolution',
+            decision: 'undecided',
+          },
+        }))
+        : sampleFiles.map(([name, folder, size], index) => ({
+          itemId: `demo-${index}`,
+          sequence: index,
+          operation: profile.presetType === 'old-installers' || profile.presetType === 'duplicates' ? 'quarantine' : 'move',
+          sourcePath: `${profile.sourceFolders[0]}/${name}`,
+          targetPath: `${profile.targetFolder}/${folder}/${index === 2 ? '报价单 2.pdf' : name}`,
+          size: Number(size),
+          selected: profile.presetType !== 'duplicates',
+          status: 'planned',
+          warningCode: index === 2 ? 'TARGET_CONFLICT' : null,
+          reason: null,
+          groupId: profile.presetType === 'duplicates' ? `group-${Math.floor(index / 2)}` : null,
+          metadata: profile.presetType === 'duplicates' ? { recommendedKeep: index % 2 === 0, decision: 'undecided' } : {},
+        }))
       this.plan = {
         planId: crypto.randomUUID(), status: 'ready', createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(), profile,
@@ -104,7 +138,8 @@ class DemoApi {
           selectedBytes: items.filter((x) => x.selected).reduce((n, x) => n + x.size, 0),
           move: items.filter((x) => x.selected && x.operation === 'move').length,
           quarantine: items.filter((x) => x.selected && x.operation === 'quarantine').length,
-          skip: 0, conflict: 1, groups: profile.presetType === 'duplicates' ? 4 : 0,
+          skip: 0, conflict: photoGroups ? 0 : 1, groups: photoGroups ? 2 : profile.presetType === 'duplicates' ? 4 : 0,
+          warnings: photoGroups ? [] : undefined, heicDecoder: photoGroups ? 'sips' : undefined,
         }, items,
       }
       this.emit('plan.completed', { planId: this.plan.planId, summary: this.plan.summary })
@@ -130,7 +165,7 @@ class DemoApi {
         endedAt: new Date().toISOString(),
       }
       this.history.unshift({ ...result, undoable_count: selected.length, run_id: result.runId, plan_id: result.planId, profile: this.plan!.profile, started_at: new Date().toISOString() })
-      if (this.plan!.profile.presetType === 'old-installers' || this.plan!.profile.presetType === 'duplicates') {
+      if (this.plan!.profile.presetType === 'old-installers' || this.plan!.profile.presetType === 'duplicates' || this.plan!.profile.presetType === 'similar-photos') {
         this.quarantine.unshift(...selected.map((item) => ({
           quarantine_id: `q-${item.itemId}`, operation_id: item.itemId,
           original_path: item.sourcePath, quarantine_path: item.targetPath,
@@ -212,6 +247,12 @@ export interface AppApi {
 
 const isTauri = '__TAURI_INTERNALS__' in window
 export const api: AppApi = isTauri ? new TauriApi() : new DemoApi()
+
+export async function localFileUrl(path: string): Promise<string> {
+  if (!isTauri || !path) return ''
+  const { convertFileSrc } = await import('@tauri-apps/api/core')
+  return convertFileSrc(path)
+}
 
 export async function pickDirectories(multiple = false): Promise<string[]> {
   if (isTauri) {

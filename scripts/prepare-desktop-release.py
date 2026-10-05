@@ -48,6 +48,9 @@ def main():
     executable = app / 'Contents/MacOS' / info['CFBundleExecutable']
     if subprocess.check_output(['lipo', '-archs', str(executable)], text=True).strip() != 'arm64':
         raise RuntimeError('Expected arm64 desktop executable')
+    scanner = app / 'Contents/MacOS/similar-photos'
+    if subprocess.check_output(['lipo', '-archs', str(scanner)], text=True).strip() != 'arm64':
+        raise RuntimeError('Expected arm64 similar-photos sidecar')
     legal = app / 'Contents/Resources/legal'
     manifest = json.loads((legal / 'manifest.json').read_text())
     for filename, expected in manifest['files'].items():

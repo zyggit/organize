@@ -18,11 +18,14 @@ const PRESETS = {
   'by-date': { label: '按日期归档', icon: 'image', description: '按文件修改日期放进“年/月”文件夹。' },
   'old-installers': { label: '旧安装包清理', icon: 'download', description: '把长期没用的安装包移到隔离区，可以随时恢复。' },
   duplicates: { label: '重复文件查找', icon: 'duplicate', description: '找出内容完全相同的文件，由你决定保留哪一份。' },
+  'similar-photos': { label: '相似照片', icon: 'image', description: '找出完全相同和看起来相似的照片。旋转、翻转的副本也会被找出来。' },
 } as const
 const preset = computed(() => PRESETS[store.profile.presetType])
 const params = computed(() => store.profile.parameters)
 const isByType = computed(() => store.profile.presetType === 'by-type')
-const fixedTarget = computed(() => ['old-installers', 'duplicates'].includes(store.profile.presetType))
+const fixedTarget = computed(() => ['old-installers', 'duplicates', 'similar-photos'].includes(store.profile.presetType))
+const photos = computed(() => store.profile.presetType === 'similar-photos')
+const scanModeMissing = computed(() => photos.value && params.value.scanExact === false && params.value.scanSimilar === false)
 const baseName = (path: string) => path.replace(/\/+$/, '').split('/').at(-1) || path
 const targetPath = computed(() => fixedTarget.value ? store.settings.quarantineFolder || '应用隔离区' : store.profile.targetFolder)
 const targetName = computed(() => fixedTarget.value ? '隔离区' : baseName(store.profile.targetFolder))
@@ -67,7 +70,7 @@ const targetInsideSource = computed(() => !fixedTarget.value && store.profile.so
   const target = normalized(store.profile.targetFolder)
   return target === normalized(source) || target.startsWith(`${normalized(source)}/`)
 }))
-const blockers = computed(() => (store.profile.sourceFolders.length ? 0 : 1) + (targetInsideSource.value ? 1 : 0) + issues.value.length)
+const blockers = computed(() => (store.profile.sourceFolders.length ? 0 : 1) + (targetInsideSource.value ? 1 : 0) + issues.value.length + (scanModeMissing.value ? 1 : 0))
 
 const enabledRules = computed(() => (params.value.typeRules ?? []).map((rule, index) => ({ rule, index })).filter(({ rule }) => rule.enabled))
 const now = new Date()
@@ -76,6 +79,7 @@ const summary = computed(() => {
   if (isByType.value) return `${sources} → ${enabledRules.value.length} 个分类${params.value.unmatchedAction === 'keep' ? '，未匹配的文件留在原处' : ''}`
   if (store.profile.presetType === 'by-date') return `${sources} → 按“年/月”归档`
   if (store.profile.presetType === 'old-installers') return `${sources} → 超过 ${params.value.olderThanDays ?? 90} 天的安装包移到隔离区`
+  if (photos.value) return `${sources} → 精确重复${params.value.scanExact === false ? '关闭' : '开启'}，相似${params.value.scanSimilar === false ? '关闭' : '开启'}`
   return `${sources} → 找出重复文件，逐组确认`
 })
 
@@ -180,6 +184,31 @@ async function scan() {
           </div>
         </section>
 
+        <section v-else-if="photos" class="panel config-section">
+          <header class="section-head"><div class="section-title"><h2>扫描内容</h2><p>只读取照片。删除一律进入隔离区，可以撤销。</p></div></header>
+          <div class="option-list">
+            <div class="option-row">
+              <span><b>精确重复</b><small>文件字节完全相同，包括两份一样的 HEIC</small></span>
+              <SwitchToggle :model-value="params.scanExact !== false" label="精确重复" @update:model-value="params.scanExact = $event" />
+            </div>
+            <div class="option-row">
+              <span><b>看起来相似</b><small>压缩、分辨率不同，或旋转、翻转后的副本</small></span>
+              <SwitchToggle :model-value="params.scanSimilar !== false" label="看起来相似" @update:model-value="params.scanSimilar = $event" />
+            </div>
+            <div class="option-row">
+              <span><b>旋转和翻转</b><small>开启后会把转过方向的照片放进同一组，扫描会更慢</small></span>
+              <SwitchToggle :model-value="params.geometricInvariance !== false" label="旋转和翻转" @update:model-value="params.geometricInvariance = $event" />
+            </div>
+            <div class="option-row">
+              <span><b>相似严格程度</b><small>数字越小，越不容易把不同照片放在一组</small></span>
+              <div class="segments compact" role="radiogroup" aria-label="相似距离">
+                <button v-for="value in [0, 5, 10, 15]" :key="value" role="radio" :aria-checked="(params.maxDifference ?? 5) === value" :class="{ active: (params.maxDifference ?? 5) === value }" @click="params.maxDifference = value">{{ value }}</button>
+              </div>
+            </div>
+          </div>
+          <div class="banner undo inset"><AppIcon name="info" :size="16" />相似组不会预先标记删除。扫描后由你逐组选择，或一键套用保留规则再调整。macOS 用系统自带的 sips 解码 HEIC，不需要额外安装解码库。</div>
+        </section>
+
         <section v-else class="panel config-section">
           <header class="section-head"><div class="section-title"><h2>{{ store.profile.presetType === 'by-date' ? '归档方式' : '处理方式' }}</h2></div></header>
           <div v-if="store.profile.presetType === 'by-date'" class="banner quarantine inset"><AppIcon name="info" :size="16" />按文件修改日期归档。修改日期不一定等于照片的拍摄日期。</div>
@@ -214,6 +243,9 @@ async function scan() {
             <li :class="store.profile.sourceFolders.length ? 'ok' : 'fail'">
               <AppIcon :name="store.profile.sourceFolders.length ? 'check' : 'alert'" :size="14" />
               {{ store.profile.sourceFolders.length ? `已选择 ${store.profile.sourceFolders.length} 个来源文件夹` : '至少添加一个来源文件夹' }}
+            </li>
+            <li v-if="photos" :class="scanModeMissing ? 'fail' : 'ok'">
+              <AppIcon :name="scanModeMissing ? 'alert' : 'check'" :size="14" />{{ scanModeMissing ? '至少打开精确重复或相似其中一项' : '已选择扫描方式' }}
             </li>
             <li v-if="!fixedTarget" :class="targetInsideSource ? 'fail' : 'ok'">
               <AppIcon :name="targetInsideSource ? 'alert' : 'check'" :size="14" />{{ targetInsideSource ? '目标文件夹在来源里面，请更换' : '目标文件夹不在来源里面' }}

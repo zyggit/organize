@@ -40,6 +40,15 @@ class LicenseBundleTests(unittest.TestCase):
                     self.assertTrue(any(m.name.endswith('.rs') for m in source.getmembers()))
             self.assertIn('Mozilla Public License Version 2.0', archive.read('MPL-2.0.txt').decode())
 
+    def test_dual_licensed_gpl_alternative_is_allowed(self):
+        self.assertFalse(bundle.forbidden_license('self_cell', 'Apache-2.0 OR GPL-2.0-only'))
+        self.assertFalse(bundle.forbidden_license('r-efi', 'MIT OR Apache-2.0 OR LGPL-2.1-or-later'))
+        self.assertFalse(bundle.forbidden_license('rawler', 'LGPL-2.1'))
+        self.assertTrue(bundle.forbidden_license('krokiet', 'GPL-3.0-only'))
+        self.assertTrue(bundle.forbidden_license('example', 'GPL-3.0-only'))
+        self.assertTrue(bundle.forbidden_license('example', 'MIT AND GPL-2.0-only'))
+        self.assertTrue(bundle.forbidden_license('example', 'GPL-2.0-only OR AGPL-3.0-only'))
+
     def test_missing_license_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, 'Missing license files'):
             bundle.fallback_files('test', 'unknown-component', '1.0')

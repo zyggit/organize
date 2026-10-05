@@ -61,6 +61,12 @@ def all_presets() -> List[Dict[str, Any]]:
             "description": "内容逐字节相同才算重复。",
             "operation": "quarantine",
         },
+        {
+            "id": "similar-photos",
+            "name": "相似照片",
+            "description": "找出完全相同和看起来相似的照片，包括旋转或翻转的副本。",
+            "operation": "quarantine",
+        },
     ]
 
 

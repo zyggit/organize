@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -25,7 +26,17 @@ else:
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / 'apps/desktop'
 LEGAL = ROOT / 'legal'
-MPL = {'option-ext', 'selectors', 'cssparser', 'cssparser-macros', 'dtoa-short'}
+MPL = {
+    'option-ext', 'selectors', 'cssparser', 'cssparser-macros', 'dtoa-short',
+    # czkawka_core 12 pulls the symphonia audio crates. similar-photos does not
+    # call that tool. The crates stay in the Cargo graph, so their MPL sources ship.
+    'symphonia', 'symphonia-bundle-flac', 'symphonia-bundle-mp3',
+    'symphonia-codec-aac', 'symphonia-codec-adpcm', 'symphonia-codec-alac',
+    'symphonia-codec-pcm', 'symphonia-codec-vorbis', 'symphonia-common',
+    'symphonia-core', 'symphonia-format-caf', 'symphonia-format-isomp4',
+    'symphonia-format-mkv', 'symphonia-format-ogg', 'symphonia-format-riff',
+    'symphonia-metadata',
+}
 
 
 def sha(data):
@@ -70,11 +81,34 @@ def component(ecosystem, name, version, license_id, files, source, scope):
             'scope': scope, 'files': files}
 
 
-def cargo_components(target):
-    locked = tomllib.loads((DESKTOP / 'src-tauri/Cargo.lock').read_text())
+def _copyleft_only(token):
+    name = token.strip().upper()
+    if name.startswith('LGPL'):
+        return False
+    return name.startswith(('GPL', 'AGPL'))
+
+
+def forbidden_license(name, license):
+    """Refuse krokiet and expressions that can only be satisfied by GPL or AGPL.
+
+    ``Apache-2.0 OR GPL-2.0-only`` stays allowed: the MIT sidecar uses the Apache-2.0 side.
+    """
+    if name == 'krokiet':
+        return True
+    expression = license.replace('(', ' ').replace(')', ' ')
+    for clause in re.split(r'\bAND\b', expression):
+        options = [option for option in re.split(r'\bOR\b', clause) if option.strip()]
+        if options and all(_copyleft_only(option) for option in options):
+            return True
+    return False
+
+
+def cargo_components(target, manifest_dir=None, scope='target graph (runtime + build)'):
+    manifest_dir = Path(manifest_dir or (DESKTOP / 'src-tauri'))
+    locked = tomllib.loads((manifest_dir / 'Cargo.lock').read_text())
     checksums = {(p['name'], p['version']): p.get('checksum') for p in locked['package']}
     raw = subprocess.check_output(['cargo', 'metadata', '--format-version', '1', '--locked',
-                                   '--offline', '--filter-platform', target], cwd=DESKTOP / 'src-tauri')
+                                   '--offline', '--filter-platform', target], cwd=manifest_dir)
     metadata = json.loads(raw)
     nodes = {n['id']: n for n in metadata['resolve']['nodes']}
     seen, todo = set(), [metadata['resolve']['root']]
@@ -97,8 +131,10 @@ def cargo_components(target):
                 files.append(record_file(f.name, f.read_bytes(), 'Published Cargo crate'))
         if not files:
             files = fallback_files('rust', p['name'], p['version'])
+        if forbidden_license(p['name'], p.get('license') or ''):
+            raise RuntimeError(f'Refusing GPL crate in the bundled graph: {p["name"]} ({p.get("license")})')
         output.append(component('rust', p['name'], p['version'], p.get('license'), files,
-                                p.get('repository') or p['source'], 'target graph (runtime + build)'))
+                                p.get('repository') or p['source'], scope))
         if 'MPL' in (p.get('license') or ''):
             if p['name'] not in MPL:
                 raise RuntimeError(f'New MPL component needs source review: {p["name"]}')
@@ -208,6 +244,12 @@ def main():
     args = parser.parse_args()
     target = args.target or subprocess.check_output(['rustc', '--print', 'host-tuple'], text=True).strip()
     rust, mpl = cargo_components(target)
+    sidecar_dir = ROOT / 'sidecars' / 'similar-photos'
+    extra, extra_mpl = cargo_components(target, sidecar_dir, 'similar-photos sidecar (runtime)')
+    seen = {(item['name'], item['version']) for item in rust}
+    rust.extend(item for item in extra if (item['name'], item['version']) not in seen)
+    mpl_names = {item['name'] for item in mpl}
+    mpl.extend(item for item in extra_mpl if item['name'] not in mpl_names)
     python, python_inventory = python_components()
     components = sorted(npm_components() + rust + python,
                         key=lambda p: (p['ecosystem'], p['name'].lower(), p['version']))
@@ -219,6 +261,7 @@ def main():
                              (LEGAL / 'BRAND.md', 'BRAND.md'),
                              (LEGAL / 'README.md', 'README.md'),
                              (DESKTOP / 'src-tauri/Cargo.lock', 'Cargo.lock'),
+                             (ROOT / 'sidecars/similar-photos/Cargo.lock', 'similar-photos-Cargo.lock'),
                              (DESKTOP / 'package-lock.json', 'package-lock.json')]:
             shutil.copyfile(source, output / dest)
         (output / 'python-packages.json').write_text(json.dumps(python_inventory, indent=2) + '\n')
@@ -238,7 +281,8 @@ def main():
         source_text += '或 macOS 显示包内容 → Contents/Resources/legal/MPL-SOURCES.zip。\n\n'
         source_text += '先解压 ZIP；每个 .crate 是标准 tar.gz，使用 tar -xzf <name-version.crate> 解压。\n'
         source_text += '所有原始源码、Cargo.toml 与原许可/版权头均保留；MPL-2.0.txt 提供许可全文。\n'
-        source_text += 'option-ext 属于运行依赖；其余下列组件主要用于构建/宏展开，保守一并提供。\n'
+        source_text += 'option-ext 属于桌面运行依赖。symphonia 系列随 czkawka_core 进入相似照片依赖图，\n'
+        source_text += '本功能不调用音频工具，仍按 MPL-2.0 附带未修改源码。其余组件主要用于构建或宏展开。\n'
         source_text += '独立的 MIT 代码不因该归档而整体变为 MPL。修改这些 MPL 文件后再发行时，\n'
         source_text += '必须提供实际修改后的对应源码，而不能继续声称此处未修改。\n\n'
         for p in mpl:

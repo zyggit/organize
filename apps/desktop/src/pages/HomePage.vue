@@ -12,6 +12,7 @@ const presentation: Record<PresetType, { icon: string; title: string; safety: st
   'by-date': { icon: 'image', title: '让每张照片找到位置', safety: '按修改日期归档', tone: 'blue', flow: ['照片与截图', `${today.getFullYear()}年 / ${today.getMonth() + 1}月`] },
   'old-installers': { icon: 'archive', title: '给旧安装包腾个地方', safety: '移入隔离区，可恢复', tone: 'peach', flow: ['超过 90 天', '安全隔离'] },
   duplicates: { icon: 'duplicate', title: '相同的文件，只留一份', safety: '由你选择保留项', tone: 'pink', flow: ['比对文件内容', '逐组选择'] },
+  'similar-photos': { icon: 'image', title: '相似的照片，只留一张', safety: '默认不标记删除', tone: 'lilac', flow: ['精确重复和相似', '逐组确认'] },
 }
 </script>
 
@@ -22,7 +23,7 @@ const presentation: Record<PresetType, { icon: string; title: string; safety: st
       <div class="hero-copy"><span class="hero-kicker"><AppIcon name="sparkle" :size="16" />少一点杂乱，多一点轻松</span><h2>让文件各归其位。</h2><p>从一个文件夹开始。先看清每个文件的去向，<br>再把整理这件事，放心交给 Organize。</p><button class="button primary hero-action" :disabled="!store.engineReady" @click="store.choosePreset('by-type')">开始整理<AppIcon name="arrow" :size="18" /></button><small>选择文件夹后扫描 · 确认前不会改动文件</small></div>
       <CareVisual />
     </section>
-    <div class="home-section-heading"><h2>为你的文件，选择一种整理方式</h2><span>4 个工具，都以安全为先</span></div>
+    <div class="home-section-heading"><h2>为你的文件，选择一种整理方式</h2><span>5 个工具，都以安全为先</span></div>
     <div class="home-grid">
       <div>
         <div class="preset-grid">

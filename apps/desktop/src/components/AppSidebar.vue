@@ -16,6 +16,7 @@ const modules: Array<{ id: PresetType; icon: string; label: string; tone: string
   { id: 'by-date', icon: 'image', label: '照片归档', tone: 'blue' },
   { id: 'old-installers', icon: 'archive', label: '旧安装包', tone: 'peach' },
   { id: 'duplicates', icon: 'duplicate', label: '重复文件', tone: 'pink' },
+  { id: 'similar-photos', icon: 'image', label: '相似照片', tone: 'lilac' },
 ]
 const locked = computed(() => store.view === 'executing' || store.view === 'scan')
 const inFlow = computed(() => ['config', 'scan', 'preview', 'duplicates', 'executing', 'result'].includes(store.view))
