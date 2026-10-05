@@ -16,6 +16,7 @@ import SettingsPage from './pages/SettingsPage.vue'
 import AboutPage from './pages/AboutPage.vue'
 import OnboardingPage from './pages/OnboardingPage.vue'
 import UndoPage from './pages/UndoPage.vue'
+import StartupLoading from './components/StartupLoading.vue'
 import { useAppStore } from './stores/app'
 import type { ViewName } from './types'
 
@@ -44,18 +45,21 @@ onMounted(() => store.initialize())
     <NMessageProvider>
       <div class="window-shell" :class="{ 'motion-paused': backgrounded }">
         <div class="app-body">
-          <AppSidebar v-if="store.view !== 'onboarding'" />
+          <AppSidebar v-if="store.startupState === 'ready' && store.view !== 'onboarding'" />
           <main class="main-content">
-            <FlowStepper v-if="flowStep" :step="flowStep" />
-            <div v-if="store.error" class="global-error"><b>出现了问题</b><span>{{ store.error }}</span><button @click="store.error = undefined">×</button></div>
-            <div v-if="store.notice" class="global-notice" role="status"><span>{{ store.notice }}</span><button @click="store.notice = ''">×</button></div>
-            <Transition name="view" mode="out-in">
-              <component :is="current" :key="store.view" />
-            </Transition>
+            <StartupLoading v-if="store.startupState !== 'ready'" :state="store.startupState" :error="store.startupError" @retry="store.initialize()" />
+            <template v-else>
+              <FlowStepper v-if="flowStep" :step="flowStep" />
+              <div v-if="store.error" class="global-error"><b>出现了问题</b><span>{{ store.error }}</span><button @click="store.error = undefined">×</button></div>
+              <div v-if="store.notice" class="global-notice" role="status"><span>{{ store.notice }}</span><button @click="store.notice = ''">×</button></div>
+              <Transition name="view" mode="out-in">
+                <component :is="current" :key="store.view" />
+              </Transition>
+            </template>
           </main>
         </div>
         <footer class="app-statusbar" role="status" aria-live="polite">
-          <span><i :class="{ ready: store.engineReady }" aria-hidden="true" />{{ store.engineReady ? '整理引擎已就绪' : '正在启动整理引擎' }}</span>
+          <span><i :class="{ ready: store.engineReady }" aria-hidden="true" />{{ store.engineReady ? '整理引擎已就绪' : store.startupState === 'error' ? '整理引擎未就绪' : '正在启动整理引擎' }}</span>
         </footer>
       </div>
     </NMessageProvider>

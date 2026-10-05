@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/src/startup.css" />
+    <title>Startup visual regression fixture</title>
+    <style>.fixture-controls { position: fixed; bottom: 32px; left: 16px; z-index: 100; font: 12px system-ui; } .fixture-controls button { padding: 6px 12px; }</style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div class="fixture-controls"><button id="finish-loading">完成模拟加载</button></div>
+    <script type="module">
+      // Dev-only fixture: all API data is synthetic and this is not a build entry.
+      const params = new URLSearchParams(location.search)
+      if (params.get('phase') === 'html') {
+        const html = new DOMParser().parseFromString(await (await fetch('/index.html')).text(), 'text/html')
+        document.querySelector('#app').replaceChildren(html.querySelector('.startup-screen'))
+        document.querySelector('.fixture-controls').remove()
+      } else {
+        const [{ createApp }, { createPinia }, { default: App }, { api }, { useAppStore }] = await Promise.all([
+          import('vue'), import('pinia'), import('/src/App.vue'), import('/src/api.ts'), import('/src/stores/app.ts'),
+          import('/src/style.css'), import('/src/theme.css'), import('/src/config.css'),
+        ])
+        let finish
+        const gate = new Promise(resolve => { finish = resolve })
+        let fail = params.get('state') === 'error'
+        if (fail) finish()
+        const request = api.request.bind(api)
+        api.request = async (method, values) => {
+          await gate
+          if (method === 'app.initialize' && fail) { fail = false; throw new Error('模拟引擎暂不可用，请重试。') }
+          const value = await request(method, values)
+          return method === 'app.initialize' ? { ...value, firstLaunch: false } : value
+        }
+        document.querySelector('#finish-loading').onclick = () => finish()
+        const pinia = createPinia()
+        if (params.get('theme') === 'dark') useAppStore(pinia).theme = 'dark'
+        createApp(App).use(pinia).mount('#app')
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,50 @@
+/* Loaded by index.html, so the startup screen can paint before JavaScript. */
+.startup-screen {
+  --startup-bg: #211940;
+  --startup-ink: #f6f3ff;
+  --startup-muted: #c5bdd9;
+  --startup-accent: #79e6da;
+  --startup-error: #ff9baa;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--startup-ink);
+  background: radial-gradient(ellipse at 50% 42%, rgb(121 230 218 / 7%), transparent 46%), var(--startup-bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+}
+/* The HTML placeholder fills the window before Vue mounts. */
+#app > .startup-screen { position: fixed; inset: 0; min-height: 100vh; }
+.startup-mark { position: relative; width: 112px; height: 112px; margin-bottom: 26px; }
+.startup-o { position: relative; width: 112px; height: 112px; color: var(--startup-accent); animation: startup-o-pulse 1.8s ease-in-out infinite; }
+.startup-halo { position: absolute; inset: 17px; border-radius: 50%; background: radial-gradient(ellipse, rgb(121 230 218 / 18%), transparent 70%); }
+.startup-title { margin: 0; font-size: 19px; font-weight: 550; letter-spacing: .5px; line-height: 1.5; }
+.startup-detail { margin: 10px 0 0; color: var(--startup-muted); font-size: 12px; line-height: 1.8; }
+.startup-error { max-width: 480px; overflow-wrap: anywhere; }
+.startup-retry { margin-top: 24px; padding: 10px 24px; border: 1px solid var(--startup-accent); border-radius: 12px; color: var(--startup-accent); background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+.startup-retry:hover { background: rgb(121 230 218 / 10%); }
+.startup-retry:focus-visible { outline: 2px solid var(--startup-accent); outline-offset: 4px; }
+.startup-screen--failed .startup-o { color: var(--startup-error); animation: none; }
+@keyframes startup-o-pulse {
+  0%, 100% { opacity: .58; transform: scale(.94); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme=dark]) .startup-screen {
+    --startup-bg: #f4f1f8; --startup-ink: #302743; --startup-muted: #665974;
+    --startup-accent: #16796f; --startup-error: #b72d4c;
+  }
+}
+[data-theme=light] .startup-screen {
+  --startup-bg: #f4f1f8; --startup-ink: #302743; --startup-muted: #665974;
+  --startup-accent: #16796f; --startup-error: #b72d4c;
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-o { animation: none; opacity: 1; transform: none; }
+}

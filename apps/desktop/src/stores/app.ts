@@ -35,6 +35,8 @@ export const useAppStore = defineStore('app', () => {
   const historyDetail = ref<HistoryDetail>()
   const quarantine = ref<QuarantineItem[]>([])
   const engineReady = ref(false)
+  const startupState = ref<'loading' | 'ready' | 'error'>('loading')
+  const startupError = ref<string>()
   const error = ref<string>()
   const scanChecked = ref(0)
   const scanPath = ref('')
@@ -52,6 +54,8 @@ export const useAppStore = defineStore('app', () => {
   const runFailed = ref(0)
   let scanCancelled = false
   let detailRequest = 0
+  let startupInFlight = false
+  let unsubscribeEvents: (() => void) | undefined
 
   function report(caught: unknown) { error.value = caught instanceof Error ? caught.message : String(caught) }
 
@@ -97,21 +101,27 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function initialize() {
-    api.onEvent(({ event, payload }) => {
-      if (event === 'plan.progress') {
-        scanChecked.value = Number(payload.checked ?? payload.hashed ?? scanChecked.value)
-        scanPath.value = String(payload.path ?? scanPath.value)
-      }
-      if (event === 'run.item') {
-        runCompleted.value = Number(payload.index ?? runCompleted.value)
-        runSuccess.value = Number(payload.success ?? (payload.status === 'applied' ? runSuccess.value + 1 : runSuccess.value))
-        runSkipped.value = Number(payload.skipped ?? runSkipped.value)
-        runFailed.value = Number(payload.failed ?? runFailed.value)
-        const item = payload.item as Record<string, unknown> | undefined
-        runCurrent.value = String(item?.sourcePath ?? item?.source_path ?? '')
-      }
-    })
+    if (startupInFlight || startupState.value === 'ready') return
+    startupInFlight = true
+    startupState.value = 'loading'
+    startupError.value = undefined
+    error.value = undefined
+    engineReady.value = false
     try {
+      unsubscribeEvents ??= api.onEvent(({ event, payload }) => {
+        if (event === 'plan.progress') {
+          scanChecked.value = Number(payload.checked ?? payload.hashed ?? scanChecked.value)
+          scanPath.value = String(payload.path ?? scanPath.value)
+        }
+        if (event === 'run.item') {
+          runCompleted.value = Number(payload.index ?? runCompleted.value)
+          runSuccess.value = Number(payload.success ?? (payload.status === 'applied' ? runSuccess.value + 1 : runSuccess.value))
+          runSkipped.value = Number(payload.skipped ?? runSkipped.value)
+          runFailed.value = Number(payload.failed ?? runFailed.value)
+          const item = payload.item as Record<string, unknown> | undefined
+          runCurrent.value = String(item?.sourcePath ?? item?.source_path ?? '')
+        }
+      })
       const [initial, loadedPresets, loadedSettings, profiles] = await Promise.all([
         api.request<{ firstLaunch: boolean; lastProfile?: Profile }>('app.initialize'),
         api.request<Preset[]>('preset.list'),
@@ -126,11 +136,15 @@ export const useAppStore = defineStore('app', () => {
         profile.value = JSON.parse(JSON.stringify(initial.lastProfile))
         ensureClassification(profile.value)
       } else profile.value.targetFolder = loadedSettings.defaultTargetFolder
-      engineReady.value = true
       await refreshCollections()
       if (initial.firstLaunch && !history.value.length) view.value = 'onboarding'
+      engineReady.value = true
+      startupState.value = 'ready'
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : String(caught)
+      startupError.value = caught instanceof Error ? caught.message : String(caught)
+      startupState.value = 'error'
+    } finally {
+      startupInFlight = false
     }
   }
 
@@ -285,7 +299,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   return {
-    view, presets, profile, plan, result, undoPreview, history, historyDetail, quarantine, engineReady, error,
+    view, presets, profile, plan, result, undoPreview, history, historyDetail, quarantine, engineReady, startupState, startupError, error,
     scanChecked, scanPath, runCompleted, runCurrent, busy, theme, settings, savedProfiles, lastProfile, notice, runSuccess, runSkipped, runFailed,
     useProfile, saveProfile, deleteProfile, updateSettings, report,
     selectedItems, selectedBytes,
