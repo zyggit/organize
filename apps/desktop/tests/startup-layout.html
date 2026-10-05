@@ -13,6 +13,8 @@
     <script type="module">
       // Dev-only fixture: all API data is synthetic and this is not a build entry.
       const params = new URLSearchParams(location.search)
+      const theme = params.get('theme')
+      if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
       if (params.get('phase') === 'html') {
         const html = new DOMParser().parseFromString(await (await fetch('/index.html')).text(), 'text/html')
         document.querySelector('#app').replaceChildren(html.querySelector('.startup-screen'))
@@ -35,7 +37,7 @@
         }
         document.querySelector('#finish-loading').onclick = () => finish()
         const pinia = createPinia()
-        if (params.get('theme') === 'dark') useAppStore(pinia).theme = 'dark'
+        if (theme === 'dark' || theme === 'light') useAppStore(pinia).theme = theme
         createApp(App).use(pinia).mount('#app')
       }
     </script>

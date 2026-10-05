@@ -1,0 +1,3 @@
+// Copyright 2015, Yuheng Chen.
+// Copyright 2023, Ethiraric.
+// See the LICENSE file at the top-level directory of this distribution.

@@ -18,7 +18,10 @@ onBeforeUnmount(() => clearTimeout(slowTimer))
   <section class="startup-screen" :class="{ 'startup-screen--failed': failed }" :role="failed ? 'alert' : 'status'" :aria-busy="!failed" aria-live="polite" aria-atomic="true">
     <div class="startup-mark" aria-hidden="true">
       <span class="startup-halo" />
-      <svg class="startup-o" viewBox="0 0 112 112" fill="none"><ellipse cx="56" cy="56" rx="29" ry="37" stroke="currentColor" stroke-width="9" /></svg>
+      <svg class="startup-o" viewBox="0 0 112 112" fill="none">
+        <defs><linearGradient id="startup-o-live" x1="27" y1="19" x2="85" y2="93" gradientUnits="userSpaceOnUse"><stop class="o-light" /><stop class="o-mid" offset="0.5" /><stop class="o-deep" offset="1" /></linearGradient></defs>
+        <ellipse cx="56" cy="56" rx="29" ry="37" stroke="url(#startup-o-live)" stroke-width="9" />
+      </svg>
     </div>
     <h1 class="startup-title">{{ failed ? '暂时无法启动智能整理' : '正在准备智能整理' }}</h1>
     <p v-if="failed" class="startup-detail startup-error">{{ error || '整理引擎未能启动，请重试。' }}</p>

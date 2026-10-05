@@ -112,3 +112,21 @@ test('HTML contains an accessible O placeholder before the app module', async ()
   const css = await readFile(new URL('../src/startup.css', import.meta.url), 'utf8')
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none/)
 })
+
+test('first paint and Vue loading O share the active icon blue gradient', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8')
+  const vue = await readFile(new URL('../src/components/StartupLoading.vue', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../src/startup.css', import.meta.url), 'utf8')
+  for (const markup of [html, vue]) {
+    assert.match(markup, /<linearGradient[^>]*x1="27" y1="19" x2="85" y2="93"/)
+    assert.match(markup, /<stop class="o-light"\s*\/><stop class="o-mid" offset="0.5"\s*\/><stop class="o-deep" offset="1"\s*\/>/)
+    assert.match(markup, /<ellipse[^>]*stroke="url\(#startup-o-(?:initial|live)\)"/)
+  }
+  for (const [name, color] of [['light', '#6eb8fd'], ['mid', '#3189fd'], ['deep', '#013dcd']]) {
+    assert.ok(css.includes(`--startup-o-${name}: ${color};`))
+    assert.ok(css.includes(`.o-${name} { stop-color: var(--startup-o-${name}); }`))
+  }
+  assert.match(css, /--startup-glow: 49 137 253;/)
+  assert.doesNotMatch(css, /#79e6da|#16796f|121 230 218/)
+  assert.match(css, /startup-screen--failed \.startup-o ellipse \{ stroke: currentColor; \}/)
+})

@@ -58,6 +58,7 @@ jobs:
           build/desktop-python/bin/python -m unittest discover -s engine/tests -v
           build/desktop-python/bin/python -m pytest tests
           build/desktop-python/bin/python scripts/test-desktop-release.py
+          build/desktop-python/bin/python scripts/test-desktop-build.py
       - name: Build installer and offline license bundle
         working-directory: apps/desktop
         run: npm run bundle:macos -- --ci

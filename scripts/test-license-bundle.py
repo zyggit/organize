@@ -18,6 +18,14 @@ spec.loader.exec_module(bundle)
 
 
 class LicenseBundleTests(unittest.TestCase):
+    def test_all_reviewed_upstream_notices_match_cached_checksums(self):
+        entries = json.loads((ROOT / 'legal/upstream.json').read_text())
+        for key in entries:
+            ecosystem, package = key.split(':', 1)
+            name, version = package.rsplit('@', 1)
+            with self.subTest(component=key):
+                self.assertTrue(bundle.fallback_files(ecosystem, name, version))
+
     def test_manifest_matches_all_generated_files(self):
         root = ROOT / 'legal/generated'
         manifest = json.loads((root / 'manifest.json').read_text())

@@ -32,6 +32,8 @@ npm run build:licenses
 ```
 
 `build:bundle` 会先构建引擎和 similar-photos sidecar，再生成许可材料，最后构建前端。
+`build:licenses` 会先按当前主机平台下载两个 Cargo 锁文件中的依赖，再执行离线许可检查。
+首次构建或依赖更新后需要联网；缓存齐全后，检查本身不访问网络。
 生成器读取当前 npm 锁文件、桌面和 similar-photos 的 Cargo 依赖图，以及打包 Python 环境中所有已安装的
 distribution（保守覆盖运行与构建依赖，不代表每个组件都链接进应用）。
 不得把所有构建工具的许可证解释为应用整体的许可证。

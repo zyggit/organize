@@ -35,9 +35,11 @@ if ! rust_ok; then
 fi
 
 mkdir -p "$tauri_binaries"
+target_triple="$(rustc --print host-tuple)"
+cargo fetch --locked --target "$target_triple" --manifest-path "$manifest"
 cargo build --release --locked --manifest-path "$manifest"
 
-python3 - "$repo_root" <<'PY'
+python3 - "$repo_root" "$target_triple" <<'PY'
 import json, re, subprocess, sys
 from pathlib import Path
 
@@ -59,17 +61,19 @@ def forbidden(name, license_name):
 
 root = Path(sys.argv[1]) / "sidecars" / "similar-photos"
 raw = subprocess.check_output(
-    ["cargo", "metadata", "--format-version", "1", "--locked", "--offline"],
+    ["cargo", "metadata", "--format-version", "1", "--locked", "--offline",
+     "--filter-platform", sys.argv[2]],
     cwd=root, text=True,
 )
-packages = json.loads(raw)["packages"]
+metadata = json.loads(raw)
+target_packages = {node["id"] for node in metadata["resolve"]["nodes"]}
+packages = [package for package in metadata["packages"] if package["id"] in target_packages]
 for package in packages:
     license_name = package.get("license") or ""
     if forbidden(package["name"], license_name):
         raise SystemExit(f"refusing GPL crate {package['name']} ({license_name})")
 PY
 
-target_triple="$(rustc --print host-tuple)"
 extension=""
 if [[ "$target_triple" == *-windows-* ]]; then
   extension=".exe"
