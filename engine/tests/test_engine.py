@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from organize_gui.errors import EngineError
 from organize_gui.service import EngineService
+from organize.__version__ import __version__ as organize_version
 
 
 class EngineIntegrationTests(unittest.TestCase):
@@ -60,6 +61,13 @@ class EngineIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(undone["restored"], 1)
         self.assertTrue(source_file.exists())
+
+    def test_version_and_plan_use_v3_core(self):
+        source_file = self.source / "v3.pdf"
+        source_file.write_bytes(b"v3")
+        self.assertEqual(self.service.version()["organize"], organize_version)
+        plan = self.service.create_plan(self.profile())
+        self.assertEqual(plan["items"][0]["metadata"]["organizeCore"], organize_version)
 
     def test_target_conflict_is_renamed_during_planning(self):
         source_file = self.source / "报价单.pdf"

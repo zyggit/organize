@@ -1,3 +1,14 @@
+# Organize
+
+独立维护的桌面衍生项目，基于 Thomas Feldmann 的 [organize](https://github.com/tfeldmann/organize)。
+不是上游官方桌面发行版，也不代表任何第三方产品或平台的官方发行或背书。
+本项目及新增原创图标按 MIT 提供，第三方组件遵循各自许可证。
+
+发行包许可、MPL 对应源码获取方式与品牌使用要求见 [发行说明](legal/README.md)
+和 [独立品牌说明](legal/BRAND.md)。当前桌面发行继续使用项目原版图标；新版图标仅作为备份保留。
+
+以下保留上游文档和署名，用于说明引擎来源；其中上游 CI、PyPI、文档链接不是本桌面应用的发布状态。
+
 <p align="center">
   <!--<img width="623" height="168" src="https://github.com/tfeldmann/organize/raw/gh-pages/img/organize.svg?sanitize=true" alt="organize logo">-->
   <a href="https://tfeldmann.github.io/organize/changelog/" target="_blank"><img width="100%" src="https://github.com/tfeldmann/organize/blob/main/docs/img/organize-v3.jpg?raw=true" alt="organize v3 is out"></a>

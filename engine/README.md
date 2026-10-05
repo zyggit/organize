@@ -7,11 +7,11 @@ It deliberately separates **planning** from **execution**:
 2. The UI reviews and edits plan selection.
 3. The executor applies only the selected plan items and journals every change.
 
-The planning, execution and journaling core uses the Python standard library so
-it can be tested independently of the desktop shell. The optional system-trash
-integration is provided by `send2trash`. The upstream `organize` package is
-kept as the future filter adapter; filesystem mutations remain owned by this
-engine so preview, recovery, and undo share one source of truth.
+File discovery and rule evaluation use the repository's organize v3 core:
+`Walker`, `Resource`, and the v3 extension, date, size, duplicate, and hash
+filters. Filesystem mutations remain owned by the desktop safety layer so
+preview, recovery, quarantine, and undo share one journaled source of truth.
+The optional system-trash integration is provided by `send2trash`.
 
 Run the tests from the repository root:
 
@@ -19,10 +19,10 @@ Run the tests from the repository root:
 python3 -m unittest discover -s engine/tests -v
 ```
 
-Install the runtime dependency before using “move to system trash”:
+Install organize v3 and its runtime dependencies from the repository root:
 
 ```bash
-python3 -m pip install -r engine/requirements.txt
+python3 -m pip install -e .
 ```
 
 Run the NDJSON server:

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "organize",
+  "productName": "Organize",
   "version": "0.1.0",
   "identifier": "com.organize.desktop",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "organize",
+        "title": "Organize",
         "width": 1440,
         "height": 920,
         "minWidth": 1120,
@@ -37,6 +37,9 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/organize-engine"],
+    "license": "MIT",
+    "licenseFile": "../../../LICENSE.txt",
+    "resources": { "../../../legal/generated/": "legal/" },
     "macOS": {
       "entitlements": "Entitlements.plist",
       "signingIdentity": "-"

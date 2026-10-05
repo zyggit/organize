@@ -3,13 +3,12 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from .errors import Cancelled, EngineError
 from .paths import (
     absolute_path,
     fingerprint,
-    hash_file,
     is_within,
     path_key,
     should_skip_name,
@@ -19,9 +18,19 @@ from .presets import (
     CATEGORIES,
     IMAGE_EXTENSIONS,
     INSTALLER_EXTENSIONS,
-    category_for_extension,
 )
 from .store import Store
+from .v3_core import (
+    CORE_VERSION,
+    apply,
+    duplicate_filter,
+    extension_filter,
+    hash_filter,
+    last_modified_filter,
+    resource_for,
+    size_filter,
+    walk_files,
+)
 
 
 Progress = Optional[Callable[[Dict[str, Any]], None]]
@@ -81,40 +90,26 @@ def scan_files(
     recursive: bool,
     progress: Progress = None,
     cancelled: CancelledCheck = None,
-) -> Iterator[Tuple[Path, Path, Optional[str]]]:
+):
     count = 0
-    stack: List[Tuple[Path, Path]] = [(source, source) for source in reversed(sources)]
-    while stack:
-        root, folder = stack.pop()
+    for resource in walk_files(sources, recursive):
         if cancelled and cancelled():
             raise Cancelled()
-        try:
-            with os.scandir(str(folder)) as entries:
-                children = sorted(list(entries), key=lambda entry: entry.name.casefold())
-        except OSError as exc:
-            if progress:
-                progress({"type": "warning", "code": "SOURCE_NOT_READABLE", "path": str(folder), "detail": str(exc)})
+        source = resource.path
+        if source is None:
             continue
-        for entry in children:
-            if cancelled and cancelled():
-                raise Cancelled()
-            try:
-                if entry.is_symlink():
-                    continue
-                if entry.is_dir(follow_symlinks=False):
-                    if recursive and entry.name.casefold() not in {".git", ".svn"}:
-                        stack.append((root, Path(entry.path)))
-                    continue
-                if not entry.is_file(follow_symlinks=False):
-                    continue
-            except OSError:
-                continue
-            path = Path(entry.path)
-            count += 1
-            reason = should_skip_name(path.name)
-            if progress and (count == 1 or count % 100 == 0):
-                progress({"type": "progress", "checked": count, "path": str(path)})
-            yield root, path, reason
+        count += 1
+        reason = should_skip_name(source.name)
+        if progress and (count == 1 or count % 100 == 0):
+            progress(
+                {
+                    "type": "progress",
+                    "core": CORE_VERSION,
+                    "checked": count,
+                    "path": str(source),
+                }
+            )
+        yield resource, reason
 
 
 class Planner:
@@ -167,15 +162,37 @@ class Planner:
         items: List[Dict[str, Any]] = []
         params = profile.get("parameters", {})
         age_days = int(params.get("olderThanDays", 90))
-        cutoff = utc_now().timestamp() - age_days * 86400
         enabled_categories = params.get("categories", list(CATEGORIES.keys()))
+        category_filters = {
+            key: extension_filter(CATEGORIES[key]["extensions"])
+            for key in enabled_categories
+            if key in CATEGORIES and key != "other"
+        }
+        image_filter = extension_filter(IMAGE_EXTENSIONS)
+        modified_filter = last_modified_filter()
+        include_archives = bool(params.get("includeArchives", False))
+        installer_filter = extension_filter(
+            INSTALLER_EXTENSIONS | ({"zip"} if include_archives else set())
+        )
+        old_filter = last_modified_filter(days=age_days)
 
-        for root, source, skip_reason in scan_files(sources, recursive, progress, cancelled):
+        for resource, skip_reason in scan_files(sources, recursive, progress, cancelled):
+            source = resource.path
+            if source is None:
+                continue
+            root = resource.basedir or source.parent
             item: Optional[Dict[str, Any]] = None
             if skip_reason:
                 item = self._item(plan_id, len(items), source, None, "skip", False, skip_reason)
             elif profile["presetType"] == "by-type":
-                category = category_for_extension(source.suffix, enabled_categories)
+                category = next(
+                    (
+                        key
+                        for key, filter_instance in category_filters.items()
+                        if apply(filter_instance, resource_for(source, root))
+                    ),
+                    "other" if "other" in enabled_categories else "",
+                )
                 if category:
                     destination = target / CATEGORIES[category]["label"] / source.name
                     destination, renamed = unique_destination(destination, occupied)
@@ -184,23 +201,22 @@ class Planner:
                     if renamed:
                         item["warningCode"] = "TARGET_CONFLICT"
             elif profile["presetType"] == "by-date":
-                extension = source.suffix.casefold().lstrip(".")
-                if extension in IMAGE_EXTENSIONS:
-                    modified = datetime.fromtimestamp(source.stat().st_mtime)
+                date_resource = resource_for(source, root)
+                if apply(image_filter, date_resource) and apply(modified_filter, date_resource):
+                    modified = date_resource.vars["lastmodified"]
                     destination = target / ("%d年" % modified.year) / ("%02d月" % modified.month) / source.name
                     destination, renamed = unique_destination(destination, occupied)
                     item = self._item(plan_id, len(items), source, destination, "move", True)
                     if renamed:
                         item["warningCode"] = "TARGET_CONFLICT"
             elif profile["presetType"] == "old-installers":
-                extension = source.suffix.casefold().lstrip(".")
-                include_archives = bool(params.get("includeArchives", False))
-                allowed = INSTALLER_EXTENSIONS | ({"zip"} if include_archives else set())
-                if extension in allowed and source.stat().st_mtime < cutoff:
+                old_resource = resource_for(source, root)
+                if apply(installer_filter, old_resource) and apply(old_filter, old_resource):
                     destination = self._quarantine_destination(plan_id, root, source)
                     item = self._item(plan_id, len(items), source, destination, "quarantine", True)
                     item["reason"] = "旧安装包，%d 天未修改" % age_days
             if item is not None:
+                item["metadata"]["organizeCore"] = CORE_VERSION
                 items.append(item)
         return items
 
@@ -214,49 +230,76 @@ class Planner:
         sources = [absolute_path(item) for item in profile["sourceFolders"]]
         recursive = bool(profile.get("includeSubfolders", True))
         minimum = int(profile.get("parameters", {}).get("minimumBytes", 1024 * 1024))
-        by_size: Dict[int, List[Tuple[Path, Path]]] = defaultdict(list)
-        for root, path, reason in scan_files(sources, recursive, progress, cancelled):
-            if not reason:
-                size = path.stat().st_size
-                if size >= minimum:
-                    by_size[size].append((root, path))
-        by_chunk: Dict[Tuple[int, str], List[Tuple[Path, Path]]] = defaultdict(list)
-        for size, paths in by_size.items():
-            if len(paths) < 2:
+        v3_size = size_filter(minimum)
+        v3_duplicate = duplicate_filter()
+        parents: Dict[Path, Path] = {}
+        basedirs: Dict[Path, Path] = {}
+
+        def find(path: Path) -> Path:
+            parents.setdefault(path, path)
+            if parents[path] != path:
+                parents[path] = find(parents[path])
+            return parents[path]
+
+        def union(left: Path, right: Path) -> None:
+            left_root = find(left)
+            right_root = find(right)
+            if left_root != right_root:
+                parents[right_root] = left_root
+
+        checked = 0
+        for resource, reason in scan_files(sources, recursive, progress, cancelled):
+            source = resource.path
+            if reason or source is None or not apply(v3_size, resource):
                 continue
-            for root, path in paths:
-                if cancelled and cancelled():
-                    raise Cancelled()
-                by_chunk[(size, hash_file(path, 64 * 1024))].append((root, path))
-        by_hash: Dict[str, List[Tuple[Path, Path]]] = defaultdict(list)
-        hashed = 0
-        for paths in by_chunk.values():
-            if len(paths) < 2:
-                continue
-            for root, path in paths:
-                if cancelled and cancelled():
-                    raise Cancelled()
-                by_hash[hash_file(path)].append((root, path))
-                hashed += 1
-                if progress:
-                    progress({"type": "progress", "stage": "full", "hashed": hashed, "path": str(path)})
+            basedirs[source] = resource.basedir or source.parent
+            duplicate_resource = resource_for(source, resource.basedir)
+            checked += 1
+            if apply(v3_duplicate, duplicate_resource):
+                original = Path(duplicate_resource.vars["duplicate"]["original"])
+                duplicate = Path(duplicate_resource.path)
+                basedirs.setdefault(original, resource.basedir or original.parent)
+                basedirs.setdefault(duplicate, resource.basedir or duplicate.parent)
+                union(original, duplicate)
+            if progress:
+                progress(
+                    {
+                        "type": "progress",
+                        "core": CORE_VERSION,
+                        "stage": "duplicate",
+                        "checked": checked,
+                        "path": str(source),
+                    }
+                )
+
+        grouped: Dict[Path, List[Path]] = defaultdict(list)
+        for path in parents:
+            grouped[find(path)].append(path)
+
+        v3_hash = hash_filter()
         items: List[Dict[str, Any]] = []
         group_index = 0
-        for digest, paths in sorted(by_hash.items()):
+        for paths in sorted(grouped.values(), key=lambda group: [str(path) for path in group]):
             if len(paths) < 2:
                 continue
             group_index += 1
             group_id = "%s-g%d" % (plan_id, group_index)
-            recommended = min(paths, key=lambda pair: (pair[1].stat().st_mtime_ns, str(pair[1])))
-            for root, source in paths:
+            paths = sorted(paths, key=str)
+            recommended = min(paths, key=lambda path: (path.stat().st_mtime_ns, str(path)))
+            digest_resource = resource_for(paths[0], basedirs[paths[0]])
+            apply(v3_hash, digest_resource)
+            digest = digest_resource.vars["hash"]
+            for source in paths:
+                root = basedirs[source]
                 destination = self._quarantine_destination(plan_id, root, source)
                 item = self._item(plan_id, len(items), source, destination, "quarantine", False)
                 item["groupId"] = group_id
                 item["metadata"].update(
                     {
                         "digest": digest,
-                        "recommendedKeep": source == recommended[1],
+                        "recommendedKeep": source == recommended,
                         "decision": "undecided",
+                        "organizeCore": CORE_VERSION,
                     }
                 )
                 item["reason"] = "重复文件"
@@ -312,4 +355,3 @@ class Planner:
             "conflict": sum(bool(item.get("warningCode")) for item in items),
             "groups": len({item.get("groupId") for item in items if item.get("groupId")}),
         }
-

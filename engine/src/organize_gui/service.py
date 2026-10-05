@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from organize.__version__ import __version__ as organize_version
+
 from . import __version__
 from .executor import Executor
 from .planner import Planner, validate_profile
@@ -50,7 +52,7 @@ class EngineService:
         }
 
     def version(self) -> Dict[str, str]:
-        return {"engine": __version__, "organize": "3.3.0+36a5457"}
+        return {"engine": __version__, "organize": organize_version}
 
     def presets(self) -> List[Dict[str, Any]]:
         return all_presets()

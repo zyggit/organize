@@ -29,7 +29,7 @@ function navigate(view: ViewName) {
 
 <template>
   <aside class="sidebar" :class="{ locked }">
-    <div class="sidebar-brand"><span class="brand-icon"><img :src="appIcon" alt="" /></span><div><strong>organize</strong><small>让文件各归其位</small></div></div>
+    <div class="sidebar-brand"><span class="brand-icon"><img :src="appIcon" alt="" /></span><div><strong>organize</strong><small>Desktop · 独立衍生项目</small></div></div>
     <nav>
       <button class="nav-item smart-nav" :class="{ active: store.view === 'home' }" :disabled="locked" @click="navigate('home')"><span class="nav-icon mint"><AppIcon name="sparkle" /></span><span>智能整理</span></button>
       <div class="nav-section-label">整理工具</div>

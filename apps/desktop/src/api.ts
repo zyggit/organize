@@ -58,7 +58,7 @@ class DemoApi {
     if (method === 'app.initialize') {
       return { engineVersion: '0.1.0-demo', firstLaunch: !this.settings.onboardingCompleted, dataDir: '应用数据/organize-gui', recoverableRuns: this.history.length, quarantineCount: this.quarantine.length } as T
     }
-    if (method === 'app.version') return { engine: '0.1.0-demo', organize: '3.3.0+36a5457' } as T
+    if (method === 'app.version') return { engine: '0.2.0-demo', organize: '3.3.0' } as T
     if (method === 'preset.list') {
       return [
         { id: 'by-type', name: '下载文件夹按类型整理', description: '文档、图片、视频等各归一处。', operation: 'move' },
@@ -230,4 +230,11 @@ export async function revealLocalPath(path: string): Promise<void> {
   if (!isTauri) return
   const { invoke } = await import('@tauri-apps/api/core')
   await invoke('reveal_path', { path })
+}
+
+export async function openLegalResource(resource: 'licenses' | 'mpl-sources'): Promise<boolean> {
+  if (!isTauri) return false
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('open_legal_resource', { resource })
+  return true
 }

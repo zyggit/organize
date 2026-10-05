@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef5f4"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#70dcc5"/>
+      <stop offset="0.45" stop-color="#228f84"/>
+      <stop offset="1" stop-color="#164c54"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#background)"/>
+  <!-- Original geometric mark: scattered inputs, an O-shaped passage, ordered outputs. -->
+  <g fill="#1d5e64" opacity="0.09" transform="translate(0 16)">
+    <circle cx="504" cy="506" r="216" fill="none" stroke="#1d5e64" stroke-width="102"/>
+    <rect x="762" y="633" width="118" height="46" rx="16"/>
+    <rect x="762" y="698" width="118" height="46" rx="16"/>
+    <rect x="762" y="763" width="118" height="46" rx="16"/>
+  </g>
+  <g fill="#bacdcf">
+    <rect x="164" y="215" width="70" height="70" rx="19" transform="rotate(-19 199 250)"/>
+    <rect x="104" y="329" width="62" height="62" rx="17" transform="rotate(14 135 360)"/>
+    <rect x="188" y="390" width="54" height="54" rx="15" transform="rotate(-8 215 417)"/>
+  </g>
+  <circle cx="504" cy="491" r="216" fill="none" stroke="#124b53" stroke-width="102"/>
+  <circle cx="504" cy="480" r="216" fill="none" stroke="url(#mark)" stroke-width="102"/>
+  <g fill="url(#mark)">
+    <rect x="762" y="621" width="118" height="46" rx="16"/>
+    <rect x="762" y="686" width="118" height="46" rx="16"/>
+    <rect x="762" y="751" width="118" height="46" rx="16"/>
+  </g>
+</svg>

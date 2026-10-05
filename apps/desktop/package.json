@@ -2,12 +2,14 @@
   "name": "organize-desktop",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "build:engine": "../../scripts/build-engine-sidecar.sh",
-    "build:bundle": "npm run build:engine && npm run build",
+    "build:licenses": "../../build/desktop-python/bin/python ../../scripts/generate-license-bundle.py",
+    "build:bundle": "npm run build:engine && npm run build:licenses && npm run build",
     "bundle:macos": "tauri build --bundles app,dmg",
     "typecheck": "vue-tsc --noEmit",
     "tauri": "tauri"

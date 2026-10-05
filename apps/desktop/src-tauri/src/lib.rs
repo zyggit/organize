@@ -109,8 +109,7 @@ fn engine_command() -> Result<Command, String> {
         return Ok(Command::new(binary));
     }
 
-    let executable = env::current_exe()
-        .map_err(|error| format!("无法定位应用程序：{error}"))?;
+    let executable = env::current_exe().map_err(|error| format!("无法定位应用程序：{error}"))?;
     let bundled_name = if cfg!(windows) {
         "organize-engine.exe"
     } else {
@@ -228,7 +227,54 @@ pub fn run() {
             app.manage(bridge);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![engine_request, reveal_path])
+        .invoke_handler(tauri::generate_handler![
+            engine_request,
+            reveal_path,
+            open_legal_resource
+        ])
         .run(tauri::generate_context!())
         .expect("error while running organize");
+}
+
+fn legal_resource_path(directory: &std::path::Path, resource: &str) -> Result<PathBuf, String> {
+    match resource {
+        "licenses" => Ok(directory.join("legal")),
+        "mpl-sources" => Ok(directory.join("legal/MPL-SOURCES.zip")),
+        _ => Err("未知的许可资源".into()),
+    }
+}
+
+#[tauri::command]
+fn open_legal_resource(app: AppHandle, resource: String) -> Result<(), String> {
+    let directory = app
+        .path()
+        .resource_dir()
+        .map_err(|error| error.to_string())?;
+    let path = legal_resource_path(&directory, &resource)?;
+    if !path.exists() {
+        return Err(
+            "安装包中缺少许可资源，请重新安装；开发模式下请查看仓库 legal/generated".into(),
+        );
+    }
+    reveal_path(path.to_string_lossy().into_owned())
+}
+
+#[cfg(test)]
+mod legal_tests {
+    use super::*;
+
+    #[test]
+    fn only_allow_named_bundled_legal_resources() {
+        let root = PathBuf::from("resources");
+        assert_eq!(
+            legal_resource_path(&root, "licenses").unwrap(),
+            root.join("legal")
+        );
+        assert_eq!(
+            legal_resource_path(&root, "mpl-sources").unwrap(),
+            root.join("legal/MPL-SOURCES.zip")
+        );
+        assert!(legal_resource_path(&root, "../../etc/passwd").is_err());
+        assert!(legal_resource_path(&root, "/tmp/file").is_err());
+    }
 }
