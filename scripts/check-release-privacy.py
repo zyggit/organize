@@ -56,8 +56,19 @@ def inspect_blob(name, data, depth=0):
         with tarfile.open(fileobj=io.BytesIO(data), mode='r:*') as archive:
             for item in archive.getmembers():
                 check_name(item.name)
-                if item.issym() or item.islnk():
+                if item.issym():
                     raise RuntimeError('Privacy audit failed: archive link')
+                if item.islnk():
+                    # Timezone data uses in-archive hardlink aliases. Never extract
+                    # or follow filesystem links; the target bytes are scanned below.
+                    check_name(item.linkname)
+                    try:
+                        target = archive.getmember(item.linkname)
+                    except KeyError:
+                        raise RuntimeError('Privacy audit failed: missing archive link target') from None
+                    if not target.isfile():
+                        raise RuntimeError('Privacy audit failed: non-file archive link target')
+                    count += inspect_blob(item.name, item.linkname.encode(), depth + 1)
                 if item.isfile():
                     if item.size > 256 * 1024 * 1024:
                         raise RuntimeError('Privacy audit failed: oversized archive entry')

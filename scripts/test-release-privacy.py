@@ -1,6 +1,7 @@
 import importlib.util
 import io
 from pathlib import Path
+import tarfile
 import unittest
 import zipfile
 
@@ -49,6 +50,25 @@ class PrivacyTests(unittest.TestCase):
             z.writestr('module.pyc', b'ghp_' + b'A' * 36)
         with self.assertRaises(RuntimeError):
             privacy.inspect_blob('library.zip', archive.getvalue())
+
+    def test_archive_hardlink_must_target_an_internal_scanned_file(self):
+        def archive(target, data=b'TZif'):
+            stream = io.BytesIO()
+            with tarfile.open(fileobj=stream, mode='w:gz') as tar:
+                file = tarfile.TarInfo('UTC')
+                file.size = len(data)
+                tar.addfile(file, io.BytesIO(data))
+                link = tarfile.TarInfo('GMT')
+                link.type = tarfile.LNKTYPE
+                link.linkname = target
+                tar.addfile(link)
+            return stream.getvalue()
+        self.assertGreater(privacy.inspect_blob('zoneinfo.tar.gz', archive('UTC')), 1)
+        for target in ['/private/file', '../file', 'missing']:
+            with self.assertRaises(RuntimeError):
+                privacy.inspect_blob('zoneinfo.tar.gz', archive(target))
+        with self.assertRaises(RuntimeError):
+            privacy.inspect_blob('zoneinfo.tar.gz', archive('UTC', b'ghp_' + b'A' * 36))
 
     def test_public_license_attribution_is_allowed(self):
         self.assertEqual(privacy.inspect_blob('LICENSE.txt', b'Copyright Example <author@example.org>'), 1)
