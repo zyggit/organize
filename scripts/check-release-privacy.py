@@ -100,6 +100,11 @@ def inspect_frozen_entry(name, data):
         raise RuntimeError(f'{error}; frozen entry: {label}') from None
 
 
+def inspect_frozen_module(name, data):
+    # PYZ keys are import names, not filenames: asyncio.log is Python code.
+    return inspect_frozen_entry(name + '.pyc', data)
+
+
 def audit_engine(engine_path):
     from PyInstaller.archive.readers import CArchiveReader
     count = 0
@@ -110,7 +115,7 @@ def audit_engine(engine_path):
             for module in archive.toc:
                 data = archive.extract(module, raw=True)
                 if data is not None:
-                    count += inspect_frozen_entry(module, data)
+                    count += inspect_frozen_module(module, data)
         else:
             count += inspect_frozen_entry(name, engine.extract(name))
     return count

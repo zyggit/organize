@@ -39,6 +39,14 @@ class PrivacyTests(unittest.TestCase):
         self.assertNotIn(secret.decode(), str(caught.exception))
         self.assertIn('<redacted entry>', str(caught.exception))
 
+    def test_import_names_are_not_runtime_log_files(self):
+        for name in ['asyncio.log', 'distutils.log']:
+            self.assertEqual(privacy.inspect_frozen_module(name, b'compiled module'), 1)
+        with self.assertRaises(RuntimeError):
+            privacy.inspect_frozen_entry('diagnostic.log', b'runtime log')
+        with self.assertRaises(RuntimeError):
+            privacy.inspect_frozen_module('asyncio.log', b'ghp_' + b'A' * 36)
+
     def test_data_files_and_traversal_fail(self):
         for name in ['journal.db', 'diagnostic.log', '.env', '.ssh/id_rsa', '../private', 'signing.p12']:
             with self.assertRaises(RuntimeError):
