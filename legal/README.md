@@ -17,7 +17,10 @@ macOS：右键应用 → 显示包内容 → `Contents/Resources/legal/`。
 - `manifest.json`：构建目标、组件来源、许可文件 SHA-256、锁文件及源码归档 SHA-256。
 - `MPL-SOURCES.md`、`MPL-SOURCES.zip`：对应版本 MPL 组件的源码，无需联网获取。
 - `BRAND.md`：独立项目和品牌说明。
-- `Cargo.lock`、`package-lock.json`、`python-packages.json`：本次构建的依赖依据。
+- `Cargo.lock`、`similar-photos-Cargo.lock`、`package-lock.json`、`python-packages.json`：本次构建的依赖依据。
+  `similar-photos` 只链接 MIT 的 `czkawka_core`，不包含 GPL-3.0-only 的 krokiet。
+  `czkawka_core` 的依赖图包含 MPL-2.0 的 symphonia 音频库。本功能不调用音频工具，
+  生成许可包时仍附带这些未修改的对应源码。
 
 ## 可重复生成
 
@@ -28,8 +31,8 @@ cd apps/desktop
 npm run build:licenses
 ```
 
-`build:bundle` 会先构建引擎，再生成许可材料，最后构建前端。
-生成器读取当前 npm 锁文件、当前平台 Cargo 依赖图，以及打包 Python 环境中所有已安装的
+`build:bundle` 会先构建引擎和 similar-photos sidecar，再生成许可材料，最后构建前端。
+生成器读取当前 npm 锁文件、桌面和 similar-photos 的 Cargo 依赖图，以及打包 Python 环境中所有已安装的
 distribution（保守覆盖运行与构建依赖，不代表每个组件都链接进应用）。
 不得把所有构建工具的许可证解释为应用整体的许可证。
 Python 标准库的许可证来自本次打包的解释器，而不是任意最新版网页。

@@ -13,7 +13,9 @@ export type ViewName =
   | 'settings'
   | 'about'
 
-export type PresetType = 'by-type' | 'by-date' | 'old-installers' | 'duplicates'
+export type PresetType = 'by-type' | 'by-date' | 'old-installers' | 'duplicates' | 'similar-photos'
+
+export type KeepRule = 'resolution' | 'largest' | 'newest' | 'shortest'
 
 export interface Preset {
   id: PresetType
@@ -34,6 +36,12 @@ export interface Profile {
     olderThanDays?: number
     includeArchives?: boolean
     minimumBytes?: number
+    scanExact?: boolean
+    scanSimilar?: boolean
+    maxDifference?: number
+    hashSize?: number
+    geometricInvariance?: boolean
+    keepRule?: KeepRule
     typeRules?: TypeRule[]
     unmatchedAction?: 'other' | 'keep'
     otherFolder?: string
@@ -83,6 +91,8 @@ export interface PlanSummary {
   skip: number
   conflict: number
   groups: number
+  warnings?: string[]
+  heicDecoder?: string
 }
 
 export interface Plan {

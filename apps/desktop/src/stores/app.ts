@@ -12,14 +12,17 @@ function makeProfile(preset: PresetType): Profile {
     'by-date': '图片按日期归档',
     'old-installers': '旧安装包清理',
     duplicates: '重复文件查找',
+    'similar-photos': '相似照片',
   }
   return {
     id: crypto.randomUUID(), name: names[preset], presetType: preset,
     sourceFolders: ['~/Downloads'], targetFolder: '~/Documents/整理',
-    includeSubfolders: preset === 'duplicates', schemaVersion: 1,
+    includeSubfolders: preset === 'duplicates' || preset === 'similar-photos', schemaVersion: 1,
     parameters: {
       categories: [...categories], olderThanDays: 90,
-      includeArchives: false, minimumBytes: 1024 * 1024,
+      includeArchives: false, minimumBytes: preset === 'similar-photos' ? 0 : 1024 * 1024,
+      scanExact: true, scanSimilar: true, maxDifference: 5, hashSize: 16,
+      geometricInvariance: true, keepRule: 'resolution',
     },
   }
 }
@@ -40,6 +43,7 @@ export const useAppStore = defineStore('app', () => {
   const error = ref<string>()
   const scanChecked = ref(0)
   const scanPath = ref('')
+  const scanLabel = ref('')
   const runCompleted = ref(0)
   const runCurrent = ref('')
   const busy = ref(false)
@@ -112,6 +116,7 @@ export const useAppStore = defineStore('app', () => {
         if (event === 'plan.progress') {
           scanChecked.value = Number(payload.checked ?? payload.hashed ?? scanChecked.value)
           scanPath.value = String(payload.path ?? scanPath.value)
+          scanLabel.value = String(payload.label ?? scanLabel.value)
         }
         if (event === 'run.item') {
           runCompleted.value = Number(payload.index ?? runCompleted.value)
@@ -156,6 +161,7 @@ export const useAppStore = defineStore('app', () => {
     busy.value = true
     error.value = undefined
     scanChecked.value = 0
+    scanLabel.value = ''
     scanCancelled = false
     scanPath.value = profile.value.sourceFolders[0] ?? ''
     view.value = 'scan'
@@ -163,7 +169,7 @@ export const useAppStore = defineStore('app', () => {
       plan.value = await api.request<Plan>('plan.create', { profile: profile.value })
       if (scanCancelled) return
       lastProfile.value = JSON.parse(JSON.stringify(profile.value))
-      view.value = profile.value.presetType === 'duplicates' ? 'duplicates' : 'preview'
+      view.value = profile.value.presetType === 'duplicates' || profile.value.presetType === 'similar-photos' ? 'duplicates' : 'preview'
     } catch (caught) {
       if (!scanCancelled) report(caught)
       view.value = 'config'
@@ -210,7 +216,7 @@ export const useAppStore = defineStore('app', () => {
       }
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : String(caught)
-      view.value = 'preview'
+      view.value = profile.value.presetType === 'duplicates' || profile.value.presetType === 'similar-photos' ? 'duplicates' : 'preview'
     } finally {
       busy.value = false
     }
@@ -300,7 +306,7 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     view, presets, profile, plan, result, undoPreview, history, historyDetail, quarantine, engineReady, startupState, startupError, error,
-    scanChecked, scanPath, runCompleted, runCurrent, busy, theme, settings, savedProfiles, lastProfile, notice, runSuccess, runSkipped, runFailed,
+    scanChecked, scanPath, scanLabel, runCompleted, runCurrent, busy, theme, settings, savedProfiles, lastProfile, notice, runSuccess, runSkipped, runFailed,
     useProfile, saveProfile, deleteProfile, updateSettings, report,
     selectedItems, selectedBytes,
     go, choosePreset, initialize, validateProfile, createPlan, toggleItem,

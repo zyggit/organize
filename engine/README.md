@@ -13,6 +13,11 @@ filters. Filesystem mutations remain owned by the desktop safety layer so
 preview, recovery, quarantine, and undo share one journaled source of truth.
 The optional system-trash integration is provided by `send2trash`.
 
+The `similar-photos` preset calls the MIT `similar-photos` sidecar
+(`czkawka_core` only). That process only reports groups. Moving files still
+goes through this engine's quarantine journal, and the sidecar has no delete
+command. Build it with `scripts/build-similar-sidecar.sh` before scanning.
+
 Run the tests from the repository root:
 
 ```bash
