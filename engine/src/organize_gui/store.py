@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class Store:
@@ -38,6 +38,11 @@ class Store:
                 profile_id TEXT PRIMARY KEY,
                 profile_json TEXT NOT NULL,
                 created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS saved_profiles (
+                profile_id TEXT PRIMARY KEY,
+                profile_json TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS plans (
@@ -142,6 +147,26 @@ class Store:
         )
         self.connection().commit()
 
+    def saved_profiles(self) -> List[Dict[str, Any]]:
+        return [json.loads(row[0]) for row in self.connection().execute(
+            "SELECT profile_json FROM saved_profiles ORDER BY updated_at DESC"
+        )]
+
+    def save_named_profile(self, profile: Dict[str, Any], now: str) -> None:
+        with self.connection() as db:
+            db.execute("INSERT OR REPLACE INTO saved_profiles VALUES (?, ?, ?)",
+                       (profile["id"], self._json(profile), now))
+
+    def delete_named_profile(self, profile_id: str) -> None:
+        with self.connection() as db:
+            db.execute("DELETE FROM saved_profiles WHERE profile_id=?", (profile_id,))
+
+    def last_profile(self) -> Optional[Dict[str, Any]]:
+        row = self.connection().execute(
+            "SELECT profile_json FROM profiles ORDER BY updated_at DESC LIMIT 1"
+        ).fetchone()
+        return json.loads(row[0]) if row else None
+
     def save_plan(
         self,
         plan_id: str,
@@ -198,6 +223,13 @@ class Store:
                 "UPDATE plan_items SET selected=1 WHERE plan_id=? AND item_id=? AND status='planned'",
                 [(plan_id, item_id) for item_id in selected_ids],
             )
+            plan = self.get_plan(plan_id)
+            summary = plan["summary"]
+            chosen = [item for item in plan["items"] if item["selected"]]
+            summary.update(selected=len(chosen), selectedBytes=sum(item["size"] for item in chosen),
+                           move=sum(item["operation"] == "move" for item in chosen),
+                           quarantine=sum(item["operation"] == "quarantine" for item in chosen))
+            db.execute("UPDATE plans SET summary_json=? WHERE plan_id=?", (self._json(summary), plan_id))
 
     def create_run(self, run: Dict[str, Any]) -> None:
         db = self.connection()
@@ -279,7 +311,8 @@ class Store:
 
     def list_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         rows = self.connection().execute(
-            "SELECT * FROM runs ORDER BY started_at DESC LIMIT ?", (limit,)
+            """SELECT runs.*, (SELECT COUNT(*) FROM operations WHERE operations.run_id=runs.run_id
+            AND state='applied') AS undoable_count FROM runs ORDER BY started_at DESC LIMIT ?""", (limit,)
         ).fetchall()
         return [self._decode_row(row, ("profile_json",)) for row in rows]
 

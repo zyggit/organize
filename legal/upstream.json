@@ -1,4 +1,16 @@
 {
+  "rust:mac-notification-sys@0.6.15": [
+    {
+      "file": "upstream/mac-notification-sys--deb559683962--LICENSE-MIT",
+      "source": "https://raw.githubusercontent.com/h4llow3En/mac-notification-sys/deb559683962d314a7693478476bf8d052efa84e/LICENSE-MIT",
+      "sha256": "1299b4d9d15e9d67e4ac0e7d47ae9404887ca3cf0764aadeec7588d5a6e8e0cc"
+    },
+    {
+      "file": "upstream/mac-notification-sys--deb559683962--LICENSE-Apache",
+      "source": "https://raw.githubusercontent.com/h4llow3En/mac-notification-sys/deb559683962d314a7693478476bf8d052efa84e/LICENSE-Apache",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    }
+  ],
   "rust:alloc-stdlib@0.3.0": [
     {
       "file": "upstream/dropbox--rust-alloc-no-stdlib--0a81fd6928ea--LICENSE",

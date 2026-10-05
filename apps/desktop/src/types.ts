@@ -34,8 +34,29 @@ export interface Profile {
     olderThanDays?: number
     includeArchives?: boolean
     minimumBytes?: number
+    typeRules?: TypeRule[]
+    unmatchedAction?: 'other' | 'keep'
+    otherFolder?: string
   }
   schemaVersion: number
+}
+
+export interface TypeRule {
+  id: string
+  name: string
+  folderName: string
+  extensions: string[]
+  enabled: boolean
+}
+
+export interface Settings {
+  theme: 'system' | 'light' | 'dark'
+  retentionDays: number
+  historyLimit: number
+  redactPaths: boolean
+  notifyOnComplete: boolean
+  defaultTargetFolder: string
+  quarantineFolder: string
 }
 
 export interface PlanItem {
@@ -82,6 +103,7 @@ export interface RunResult {
   success: number
   skipped: number
   failed: number
+  successBytes?: number
   endedAt: string
 }
 
@@ -96,6 +118,7 @@ export interface HistoryRun {
   failed: number
   started_at: string
   ended_at?: string
+  undoable_count: number
 }
 
 export interface HistoryOperation {
@@ -103,7 +126,7 @@ export interface HistoryOperation {
   operation: 'move' | 'quarantine'
   source_path: string
   target_path: string
-  state: 'started' | 'applied' | 'failed' | 'undone'
+  state: 'started' | 'applied' | 'failed' | 'undone' | 'skipped'
   error_code?: string | null
   error_detail?: string | null
 }

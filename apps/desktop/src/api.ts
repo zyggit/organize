@@ -43,7 +43,8 @@ class DemoApi {
   private plan?: Plan
   private history: any[] = []
   private quarantine: any[] = []
-  private settings = { theme: 'system', retentionDays: 30, historyLimit: 200, redactPaths: true, notifyOnComplete: true, onboardingCompleted: false }
+  private profiles: Profile[] = []
+  private settings = { theme: 'system', retentionDays: 30, historyLimit: 200, redactPaths: true, notifyOnComplete: true, onboardingCompleted: false, defaultTargetFolder: '~/Documents/整理', quarantineFolder: '应用数据/quarantine' }
 
   onEvent(handler: EventHandler) {
     this.handlers.add(handler)
@@ -61,13 +62,20 @@ class DemoApi {
     if (method === 'app.version') return { engine: '0.2.0-demo', organize: '3.3.0' } as T
     if (method === 'preset.list') {
       return [
-        { id: 'by-type', name: '下载文件夹按类型整理', description: '文档、图片、视频等各归一处。', operation: 'move' },
+        { id: 'by-type', name: '文件按类型整理', description: '自选文件夹和分类规则，文档、图片各归一处。', operation: 'move' },
         { id: 'by-date', name: '图片按日期归档', description: '按年和月整理照片与截图。', operation: 'move' },
         { id: 'old-installers', name: '旧安装包清理', description: '腾出被旧安装包占用的空间。', operation: 'quarantine' },
         { id: 'duplicates', name: '重复文件查找', description: '内容逐字节相同才算重复。', operation: 'quarantine' },
       ] as T
     }
     if (method === 'profile.validate') return { valid: true, issues: [] } as T
+    if (method === 'profile.list') return this.profiles as T
+    if (method === 'profile.save') {
+      const profile = JSON.parse(JSON.stringify(params.profile)) as Profile
+      this.profiles = [profile, ...this.profiles.filter((item) => item.id !== profile.id)]
+      return profile as T
+    }
+    if (method === 'profile.delete') { this.profiles = this.profiles.filter((item) => item.id !== params.profileId); return { deleted: true } as T }
     if (method === 'plan.create') {
       const profile = params.profile as Profile
       for (let checked = 320; checked <= 1920; checked += 320) {
@@ -118,9 +126,10 @@ class DemoApi {
       const result: RunResult = {
         runId: crypto.randomUUID(), planId: this.plan!.planId, status: 'completed',
         total: selected.length, success: selected.length, skipped: 0, failed: 0,
+        successBytes: selected.reduce((sum, item) => sum + item.size, 0),
         endedAt: new Date().toISOString(),
       }
-      this.history.unshift({ ...result, run_id: result.runId, plan_id: result.planId, profile: this.plan!.profile, started_at: new Date().toISOString() })
+      this.history.unshift({ ...result, undoable_count: selected.length, run_id: result.runId, plan_id: result.planId, profile: this.plan!.profile, started_at: new Date().toISOString() })
       if (this.plan!.profile.presetType === 'old-installers' || this.plan!.profile.presetType === 'duplicates') {
         this.quarantine.unshift(...selected.map((item) => ({
           quarantine_id: `q-${item.itemId}`, operation_id: item.itemId,
@@ -230,6 +239,19 @@ export async function revealLocalPath(path: string): Promise<void> {
   if (!isTauri) return
   const { invoke } = await import('@tauri-apps/api/core')
   await invoke('reveal_path', { path })
+}
+
+export async function notifyCompletion(result: RunResult): Promise<void> {
+  if (!isTauri) return
+  const { isPermissionGranted, sendNotification } = await import('@tauri-apps/plugin-notification')
+  if (!await isPermissionGranted()) throw new Error('系统通知未授权')
+  sendNotification({ title: 'Organize · 整理结束', body: `${result.success} 个完成，${result.skipped} 个跳过，${result.failed} 个失败。` })
+}
+
+export async function requestNotificationPermission(): Promise<boolean> {
+  if (!isTauri) return true
+  const { isPermissionGranted, requestPermission } = await import('@tauri-apps/plugin-notification')
+  return await isPermissionGranted() || await requestPermission() === 'granted'
 }
 
 export async function openLegalResource(resource: 'licenses' | 'mpl-sources'): Promise<boolean> {

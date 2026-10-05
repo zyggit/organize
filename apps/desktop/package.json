@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "build:engine": "../../scripts/build-engine-sidecar.sh",
@@ -17,6 +18,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@tauri-apps/plugin-notification": "^2.5.1",
     "naive-ui": "^2.42.0",
     "pinia": "^3.0.3",
     "vue": "^3.5.22"

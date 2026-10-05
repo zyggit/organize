@@ -45,14 +45,35 @@ class Executor:
             }
         )
         success = skipped = failed = 0
+        success_bytes = 0
+
+        def record_skip(item: Dict[str, Any], code: str) -> None:
+            operation_id = uuid.uuid4().hex
+            self.store.start_operation({
+                "operationId": operation_id, "runId": run_id, "itemId": item["item_id"],
+                "sequence": item["seq"], "operation": item["operation"],
+                "sourcePath": item["source_path"], "targetPath": item["target_path"],
+                "before": item["fingerprint"], "startedAt": now_iso(),
+            })
+            self.store.finish_operation(operation_id, "skipped", None, now_iso(), code)
+
+        def progress(item: Dict[str, Any], status: str) -> None:
+            if events:
+                events({"type": "item", "status": status, "index": success + skipped + failed,
+                        "success": success, "skipped": skipped, "failed": failed,
+                        "total": len(items), "item": item})
+
         for index, item in enumerate(items):
             if self.cancel_event.is_set():
                 skipped += len(items) - index
+                for remaining in items[index:]:
+                    record_skip(remaining, "CANCELLED")
+                progress(item, "skipped")
                 break
             if not same_fingerprint(Path(item["source_path"]), item["fingerprint"]):
                 skipped += 1
-                if events:
-                    events({"type": "item", "status": "skipped", "code": "FILE_CHANGED", "item": item})
+                record_skip(item, "FILE_CHANGED")
+                progress(item, "skipped")
                 continue
             operation_id = uuid.uuid4().hex
             operation = {
@@ -87,19 +108,17 @@ class Executor:
                         }
                     )
                 success += 1
-                if events:
-                    events({"type": "item", "status": "applied", "index": index + 1, "total": len(items), "item": item})
+                success_bytes += item["size"]
+                progress(item, "applied")
             except EngineError as exc:
                 failed += 1
                 self.store.finish_operation(operation_id, "failed", None, now_iso(), exc.code, str(exc))
-                if events:
-                    events({"type": "item", "status": "failed", "error": exc.as_dict(), "item": item})
+                progress(item, "failed")
             except OSError as exc:
                 failed += 1
                 code = self._os_error_code(exc)
                 self.store.finish_operation(operation_id, "failed", None, now_iso(), code, str(exc))
-                if events:
-                    events({"type": "item", "status": "failed", "error": {"code": code, "message": str(exc)}, "item": item})
+                progress(item, "failed")
         if self.cancel_event.is_set():
             status = "cancelled"
         elif failed and success:
@@ -116,6 +135,7 @@ class Executor:
             "success": success,
             "skipped": skipped,
             "failed": failed,
+            "successBytes": success_bytes,
             "endedAt": now_iso(),
         }
         self.store.finish_run(run_id, result)

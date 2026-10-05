@@ -39,7 +39,7 @@ def all_presets() -> List[Dict[str, Any]]:
     return [
         {
             "id": "by-type",
-            "name": "下载文件夹按类型整理",
+            "name": "文件按类型整理",
             "description": "文档、图片、视频等各归一处。",
             "operation": "move",
         },
@@ -71,4 +71,3 @@ def category_for_extension(extension: str, enabled: List[str]) -> str:
         if category and normalized in category["extensions"]:
             return key
     return "other" if "other" in enabled else ""
-

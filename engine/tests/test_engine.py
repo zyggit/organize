@@ -3,6 +3,8 @@ import sys
 import tempfile
 import unittest
 import zipfile
+import json
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -151,6 +153,133 @@ class EngineIntegrationTests(unittest.TestCase):
             self.assertIn("diagnostics.json", bundle.namelist())
             contents = bundle.read("diagnostics.json").decode("utf-8")
             self.assertIn('"integrity": "ok"', contents)
+
+    def custom_profile(self):
+        profile = self.profile()
+        profile["parameters"] = {
+            "typeRules": [{"id": "work", "name": "工作资料", "folderName": "我的资料",
+                           "extensions": [".PDF", "md"], "enabled": True}],
+            "unmatchedAction": "keep", "otherFolder": "杂项",
+        }
+        return profile
+
+    def test_custom_rules_and_unmatched_keep(self):
+        (self.source / "notes.PDF").write_bytes(b"pdf")
+        (self.source / "keep.bin").write_bytes(b"untouched")
+        plan = self.service.create_plan(self.custom_profile())
+        self.assertEqual(plan["summary"]["selected"], 1)
+        self.assertEqual(plan["summary"]["skip"], 1)
+        move = next(item for item in plan["items"] if item["selected"])
+        self.assertEqual(Path(move["target_path"]).parent.name, "我的资料")
+        self.service.execute(plan["plan_id"])
+        self.assertTrue((self.source / "keep.bin").exists())
+
+    def test_unmatched_other_folder_and_disabled_rule(self):
+        (self.source / "notes.pdf").write_bytes(b"pdf")
+        profile = self.custom_profile()
+        profile["parameters"]["typeRules"][0]["enabled"] = False
+        profile["parameters"]["unmatchedAction"] = "other"
+        plan = self.service.create_plan(profile)
+        self.assertEqual(Path(plan["items"][0]["target_path"]).parent.name, "杂项")
+
+    def test_rule_validation_blocks_duplicate_extensions_and_path_escape(self):
+        profile = self.custom_profile()
+        profile["parameters"]["typeRules"].append({"id": "second", "name": "重复",
+            "folderName": "../越界", "extensions": ["pdf"], "enabled": True})
+        codes = {issue["code"] for issue in self.service.validate(profile)["issues"]}
+        self.assertIn("DUPLICATE_EXTENSION", codes)
+        self.assertIn("INVALID_RULE_FOLDER", codes)
+        with self.assertRaises(EngineError):
+            self.service.create_plan(profile)
+
+    def test_sources_need_not_be_downloads_and_overlapping_sources_deduplicate(self):
+        extra = self.root / "项目资料"
+        nested = extra / "子目录"
+        nested.mkdir(parents=True)
+        (nested / "source.pdf").write_bytes(b"one")
+        profile = self.profile()
+        profile["sourceFolders"] = [str(extra), str(nested), str(extra)]
+        plan = self.service.create_plan(profile)
+        self.assertEqual(plan["summary"]["selected"], 1)
+        self.assertTrue(plan["items"][0]["source_path"].startswith(str(extra)))
+
+    def test_saved_profiles_and_last_profile_survive_restart(self):
+        profile = self.custom_profile()
+        self.service.save_profile(profile)
+        self.service.create_plan(profile)
+        restarted = EngineService(self.root / "data")
+        self.assertEqual(restarted.saved_profiles(), [profile])
+        self.assertEqual(restarted.initialize()["lastProfile"], profile)
+        restarted.store.delete_named_profile(profile["id"])
+        self.assertEqual(restarted.saved_profiles(), [])
+        self.assertEqual(restarted.initialize()["lastProfile"], profile)
+
+    def test_settings_validation_is_atomic_and_persistent(self):
+        with self.assertRaises(EngineError):
+            self.service.update_settings({"theme": "light", "retentionDays": 1})
+        self.assertEqual(self.service.settings()["theme"], "system")
+        self.service.update_settings({"theme": "light", "retentionDays": 7,
+                                      "defaultTargetFolder": str(self.target), "historyLimit": 10})
+        restarted = EngineService(self.root / "data")
+        self.assertEqual(restarted.settings()["defaultTargetFolder"], str(self.target))
+        self.assertEqual(restarted.executor.retention_days, 7)
+
+    def test_quarantine_location_change_invalidates_old_plans(self):
+        installer = self.source / "old.dmg"
+        installer.write_bytes(b"installer")
+        old = (datetime.now(timezone.utc) - timedelta(days=120)).timestamp()
+        os.utime(installer, (old, old))
+        plan = self.service.create_plan(self.profile("old-installers"))
+        new_root = self.root / "新隔离区"
+        new_root.mkdir()
+        self.service.update_settings({"quarantineFolder": str(new_root), "retentionDays": 7})
+        with self.assertRaises(EngineError):
+            self.service.execute(plan["plan_id"])
+        new_plan = self.service.create_plan(self.profile("old-installers"))
+        self.assertTrue(new_plan["items"][0]["target_path"].startswith(str(new_root)))
+        self.service.execute(new_plan["plan_id"])
+        item = self.service.quarantine()[0]
+        delta = datetime.fromisoformat(item["retention_until"]) - datetime.fromisoformat(item["quarantined_at"])
+        self.assertEqual(delta.days, 7)
+
+    def test_selection_summary_and_undoable_count(self):
+        for name in ["a.pdf", "b.pdf"]:
+            (self.source / name).write_bytes(b"abc")
+        plan = self.service.create_plan(self.profile())
+        selected = self.service.select_plan_items(plan["plan_id"], [plan["items"][0]["item_id"]])
+        self.assertEqual(selected["summary"]["selectedBytes"], 3)
+        self.assertEqual(selected["summary"]["move"], 1)
+        result = self.service.execute(plan["plan_id"])
+        self.assertEqual(self.service.history()[0]["undoable_count"], 1)
+        preview = self.service.undo_preview(result["runId"])
+        self.service.undo(result["runId"], [preview["items"][0]["operationId"]])
+        self.assertEqual(self.service.history()[0]["undoable_count"], 0)
+
+    def test_real_progress_and_skipped_journal(self):
+        (self.source / "a.pdf").write_bytes(b"abc")
+        (self.source / "b.pdf").write_bytes(b"defg")
+        plan = self.service.create_plan(self.profile())
+        events = []
+        with patch("organize_gui.executor.same_fingerprint", side_effect=[False, True]):
+            result = self.service.execute(plan["plan_id"], events.append)
+        self.assertEqual((result["success"], result["skipped"], result["failed"]), (1, 1, 0))
+        progress = [event for event in events if event["type"] == "item"]
+        self.assertEqual(progress[-1]["index"], 2)
+        self.assertEqual(progress[-1]["skipped"], 1)
+        ops = self.service.history_detail(result["runId"])["operations"]
+        self.assertEqual([op["state"] for op in ops], ["skipped", "applied"])
+        self.assertEqual(result["successBytes"], plan["items"][1]["size"])
+
+    def test_diagnostic_export_redacts_external_paths_and_logs(self):
+        logs = self.service.data_dir / "logs"
+        logs.mkdir()
+        (logs / "engine.log").write_text("Failure at /Volumes/Private Disk/personal file.pdf\n", encoding="utf-8")
+        output = self.root / "redacted.zip"
+        self.service.export_diagnostics(str(output))
+        with zipfile.ZipFile(str(output)) as bundle:
+            manifest = json.loads(bundle.read("diagnostics.json"))
+            self.assertEqual(manifest["settings"]["defaultTargetFolder"], "~[路径已隐藏]")
+            self.assertNotIn("Private", bundle.read("logs/engine.log").decode())
 
 
 if __name__ == "__main__":

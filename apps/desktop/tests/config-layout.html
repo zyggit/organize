@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head><meta charset="UTF-8" /><title>方案设置布局回归测试</title></head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // npm run dev → /tests/config-layout.html?preset=by-type&state=issues
+      // 合成场景：多个来源、长路径、扩展名冲突与校验问题；不扫描真实文件。
+      import { createApp, h } from 'vue'
+      import { createPinia } from 'pinia'
+      import { NConfigProvider, darkTheme } from 'naive-ui'
+      import AppSidebar from '../src/components/AppSidebar.vue'
+      import FlowStepper from '../src/components/FlowStepper.vue'
+      import ConfigPage from '../src/pages/ConfigPage.vue'
+      import { useAppStore } from '../src/stores/app'
+      import '../src/style.css'
+      import '../src/theme.css'
+      import '../src/config.css'
+
+      const query = new URLSearchParams(location.search)
+      const pinia = createPinia()
+      const store = useAppStore(pinia)
+      store.engineReady = true
+      store.choosePreset(query.get('preset') ?? 'by-type')
+      store.profile.sourceFolders = ['/Users/demo/Downloads', `/Volumes/团队共享/${'很长的项目目录/'.repeat(5)}素材`]
+      store.savedProfiles = [{ ...JSON.parse(JSON.stringify(store.profile)), id: 'saved-1', name: '工作下载整理' }]
+      if (query.get('state') === 'issues') {
+        const rules = store.profile.parameters.typeRules
+        if (rules) {
+          rules[1].extensions.push('pdf')
+          rules.push({ id: 'empty', name: '', folderName: 'a/b', extensions: [], enabled: true })
+        }
+      }
+      if (query.get('theme') === 'light') document.documentElement.dataset.theme = 'light'
+      createApp({
+        render: () => h(NConfigProvider, { class: 'app-provider', theme: query.get('theme') === 'light' ? null : darkTheme }, {
+          default: () => h('div', { class: 'window-shell' }, [
+            h('div', { class: 'app-body' }, [
+              h(AppSidebar),
+              h('main', { class: 'main-content' }, [h(FlowStepper, { step: 2 }), h(ConfigPage)]),
+            ]),
+            h('footer', { class: 'app-statusbar' }, '布局测试 · 合成数据'),
+          ]),
+        }),
+      }).use(pinia).mount('#app')
+    </script>
+  </body>
+</html>

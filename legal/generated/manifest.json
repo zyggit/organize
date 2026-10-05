@@ -280,6 +280,21 @@
     },
     {
       "ecosystem": "npm",
+      "name": "@tauri-apps/plugin-notification",
+      "version": "2.5.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/tauri-apps/plugins-workspace",
+      "scope": "frontend dependency",
+      "files": [
+        {
+          "name": "LICENSE.spdx",
+          "sha256": "eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef",
+          "source": "Installed locked npm package"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
       "name": "@types/estree",
       "version": "1.0.9",
       "license": "MIT",
@@ -784,6 +799,21 @@
         {
           "name": "LICENSE",
           "sha256": "9a39f2aadab11a3697edd668ff2d8ad885b649737b7ab4d3bf12b34e5ada0c86",
+          "source": "Installed locked npm package"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "fsevents",
+      "version": "2.3.3",
+      "license": "MIT",
+      "source": "https://github.com/fsevents/fsevents.git",
+      "scope": "build tool",
+      "files": [
+        {
+          "name": "LICENSE",
+          "sha256": "2a8a5d6197bb97a018b8a190dd3ed853d750ca87c8e80c17aad41d6c6ff448e1",
           "source": "Installed locked npm package"
         }
       ]
@@ -4330,6 +4360,26 @@
     },
     {
       "ecosystem": "rust",
+      "name": "mac-notification-sys",
+      "version": "0.6.15",
+      "license": "MIT/Apache-2.0",
+      "source": "https://github.com/h4llow3En/mac-notification-sys",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "mac-notification-sys--deb559683962--LICENSE-MIT",
+          "sha256": "1299b4d9d15e9d67e4ac0e7d47ae9404887ca3cf0764aadeec7588d5a6e8e0cc",
+          "source": "https://raw.githubusercontent.com/h4llow3En/mac-notification-sys/deb559683962d314a7693478476bf8d052efa84e/LICENSE-MIT"
+        },
+        {
+          "name": "mac-notification-sys--deb559683962--LICENSE-Apache",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "source": "https://raw.githubusercontent.com/h4llow3En/mac-notification-sys/deb559683962d314a7693478476bf8d052efa84e/LICENSE-Apache"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
       "name": "markup5ever",
       "version": "0.39.0",
       "license": "MIT OR Apache-2.0",
@@ -4504,6 +4554,26 @@
         {
           "name": "LICENSE-MIT",
           "sha256": "f7715d38a3fa1b4ac97c5729740752505a39cb92ee83ab5b102aeb5eaa7cdea4",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "notify-rust",
+      "version": "4.18.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/hoodie/notify-rust",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE-Apache",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-MIT",
+          "sha256": "d848c165548bd3f33419b71c3c3bb7cacec620d93383483393410688cba68431",
           "source": "Published Cargo crate"
         }
       ]
@@ -5080,6 +5150,26 @@
     },
     {
       "ecosystem": "rust",
+      "name": "ppv-lite86",
+      "version": "0.2.21",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/cryptocorrosion/cryptocorrosion",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE-APACHE",
+          "sha256": "0218327e7a480793ffdd4eb792379a9709e5c135c7ba267f709d6f6d4d70af0a",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-MIT",
+          "sha256": "4cada0bd02ea3692eee6f16400d86c6508bbd3bafb2b65fed0419f36d4f83e8f",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
       "name": "precomputed-hash",
       "version": "0.1.1",
       "license": "MIT",
@@ -5144,6 +5234,66 @@
         {
           "name": "LICENSE-MIT",
           "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand",
+      "version": "0.9.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/rust-random/rand",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE-APACHE",
+          "sha256": "35242e7a83f69875e6edeff02291e688c97caafe2f8902e4e19b49d3e78b4cab",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-MIT",
+          "sha256": "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand_chacha",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/rust-random/rand",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE-APACHE",
+          "sha256": "35242e7a83f69875e6edeff02291e688c97caafe2f8902e4e19b49d3e78b4cab",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-MIT",
+          "sha256": "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand_core",
+      "version": "0.9.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/rust-random/rand",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE-APACHE",
+          "sha256": "6df43f6f4b5d4587f3d8d71e45532c688fd168afa5fe89d571cb32fa09c4ef51",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-MIT",
+          "sha256": "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
           "source": "Published Cargo crate"
         }
       ]
@@ -6170,6 +6320,31 @@
     },
     {
       "ecosystem": "rust",
+      "name": "tauri-plugin-notification",
+      "version": "2.5.1",
+      "license": "Apache-2.0 OR MIT",
+      "source": "https://github.com/tauri-apps/plugins-workspace",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE.spdx",
+          "sha256": "eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE_APACHE-2.0",
+          "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE_MIT",
+          "sha256": "89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
       "name": "tauri-runtime",
       "version": "2.12.1",
       "license": "Apache-2.0 OR MIT",
@@ -6865,6 +7040,31 @@
     },
     {
       "ecosystem": "rust",
+      "name": "zerocopy",
+      "version": "0.8.59",
+      "license": "BSD-2-Clause OR Apache-2.0 OR MIT",
+      "source": "https://github.com/google/zerocopy",
+      "scope": "target graph (runtime + build)",
+      "files": [
+        {
+          "name": "LICENSE-APACHE",
+          "sha256": "9d185ac6703c4b0453974c0d85e9eee43e6941009296bb1f5eb0b54e2329e9f3",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-BSD",
+          "sha256": "83c1763356e822adde0a2cae748d938a73fdc263849ccff6b27776dff213bd32",
+          "source": "Published Cargo crate"
+        },
+        {
+          "name": "LICENSE-MIT",
+          "sha256": "1a2f5c12ddc934d58956aa5dbdd3255fe55fd957633ab7d0d39e4f0daa73f7df",
+          "source": "Published Cargo crate"
+        }
+      ]
+    },
+    {
+      "ecosystem": "rust",
       "name": "zerofrom",
       "version": "0.1.8",
       "license": "Unicode-3.0",
@@ -7003,14 +7203,14 @@
   ],
   "files": {
     "BRAND.md": "e7d1445027b49a7a4ec45fee2bedf1d48973ed30d44880d55de873aa892d787e",
-    "Cargo.lock": "2c1735a3aa9ac30c226727b4d24abeed557876251588a9e48b35afcd4dfaee09",
+    "Cargo.lock": "ceff877e68575a9ee7f031f8d7774e8fbbb46af0159297440cf63d923fc6ccbc",
     "DESKTOP-LICENSE.txt": "ca9fdb0a38d2c0a975fbbe84b0aee38873f2cb0c84ff0ec0b3ca5c89602e0da9",
     "LICENSE.txt": "c6d2fd0b7c573bd1e3db59ec3b4644a217bd137d1170274daef65284eeb70b36",
     "MPL-SOURCES.md": "59b9b0d8a31a823382e6d1feabaca8e5c13d1e42879a2beff0eca708d6b16f43",
     "MPL-SOURCES.zip": "04b777386097d207e0ccd830ac67ace10bced8b6d8c40d5f4587fb43a9e0c9e0",
     "README.md": "2abb9452d052fd74f0f5f7322dc378feb29a5dce6f3ec3d31740f0abbf0284c4",
-    "THIRD_PARTY_NOTICES.txt": "f4b5558226c3958961c8a1d870a855f8a854d2fef4e6497df1e7e258117c2bc4",
-    "package-lock.json": "8607e248bf53510e57ca920d913ec178ee08f8e21d441dca613aff7847974e48",
+    "THIRD_PARTY_NOTICES.txt": "50345069cee3be12b859520c59feedb90ec8543e66e34327bad984ea70d43f9c",
+    "package-lock.json": "57cd8e7aca47b6cb18abfb6b27b173ecd31ae20b20ce24a57ae0025aee0deba8",
     "python-packages.json": "b192f89050c39fc591dc0f3c348793a342c051561f85d7a787f6e0f504b06d89"
   }
 }

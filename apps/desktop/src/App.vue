@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import { darkTheme, NConfigProvider, NMessageProvider, type GlobalThemeOverrides } from 'naive-ui'
 import AppSidebar from './components/AppSidebar.vue'
 import FlowStepper from './components/FlowStepper.vue'
@@ -26,14 +26,21 @@ const flowSteps: Partial<Record<ViewName, number>> = { config: 2, scan: 3, previ
 const flowStep = computed(() => flowSteps[store.view] ?? 0)
 const themeOverrides: GlobalThemeOverrides = { common: { primaryColor: '#79E6DA', successColor: '#79E6BB', warningColor: '#FFC986', errorColor: '#FF9BAA', bodyColor: '#211940', cardColor: '#342950', borderColor: '#514565', textColor1: '#F6F3FF', textColor2: '#C5BDD9', textColor3: '#A99DBF', borderRadius: '12px' } }
 const backgrounded = ref(document.hidden)
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
+const systemDark = ref(systemTheme.matches)
+const isDark = computed(() => store.theme === 'dark' || (store.theme === 'system' && systemDark.value))
+function updateSystemTheme() { systemDark.value = systemTheme.matches }
+systemTheme.addEventListener('change', updateSystemTheme)
+watchEffect(() => { document.documentElement.dataset.theme = isDark.value ? 'dark' : 'light' })
 function updateVisibility() { backgrounded.value = document.hidden }
 document.addEventListener('visibilitychange', updateVisibility)
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', updateVisibility))
+onBeforeUnmount(() => systemTheme.removeEventListener('change', updateSystemTheme))
 onMounted(() => store.initialize())
 </script>
 
 <template>
-  <NConfigProvider class="app-provider" :theme="darkTheme" :theme-overrides="themeOverrides">
+  <NConfigProvider class="app-provider" :theme="isDark ? darkTheme : null" :theme-overrides="isDark ? themeOverrides : {}">
     <NMessageProvider>
       <div class="window-shell" :class="{ 'motion-paused': backgrounded }">
         <div class="app-body">
@@ -41,6 +48,7 @@ onMounted(() => store.initialize())
           <main class="main-content">
             <FlowStepper v-if="flowStep" :step="flowStep" />
             <div v-if="store.error" class="global-error"><b>出现了问题</b><span>{{ store.error }}</span><button @click="store.error = undefined">×</button></div>
+            <div v-if="store.notice" class="global-notice" role="status"><span>{{ store.notice }}</span><button @click="store.notice = ''">×</button></div>
             <Transition name="view" mode="out-in">
               <component :is="current" :key="store.view" />
             </Transition>

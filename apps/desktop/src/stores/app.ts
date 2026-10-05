@@ -1,13 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { api } from '../api'
-import type { HistoryDetail, HistoryRun, Plan, Preset, PresetType, Profile, QuarantineItem, RunResult, UndoPreview, ViewName } from '../types'
+import { api, notifyCompletion } from '../api'
+import { ensureClassification } from '../profiles'
+import type { HistoryDetail, HistoryRun, Plan, Preset, PresetType, Profile, QuarantineItem, RunResult, Settings, UndoPreview, ViewName } from '../types'
 
 const categories = ['documents', 'images', 'videos', 'audio', 'archives', 'installers', 'other']
 
 function makeProfile(preset: PresetType): Profile {
   const names: Record<PresetType, string> = {
-    'by-type': '下载文件夹按类型整理',
+    'by-type': '文件按类型整理',
     'by-date': '图片按日期归档',
     'old-installers': '旧安装包清理',
     duplicates: '重复文件查找',
@@ -41,6 +42,45 @@ export const useAppStore = defineStore('app', () => {
   const runCurrent = ref('')
   const busy = ref(false)
   const theme = ref<'system' | 'light' | 'dark'>('system')
+  const settings = ref<Settings>({ theme: 'system', retentionDays: 30, historyLimit: 200, redactPaths: true,
+    notifyOnComplete: true, defaultTargetFolder: '~/Documents/整理', quarantineFolder: '' })
+  const savedProfiles = ref<Profile[]>([])
+  const lastProfile = ref<Profile>()
+  const notice = ref('')
+  const runSuccess = ref(0)
+  const runSkipped = ref(0)
+  const runFailed = ref(0)
+  let scanCancelled = false
+  let detailRequest = 0
+
+  function report(caught: unknown) { error.value = caught instanceof Error ? caught.message : String(caught) }
+
+  function useProfile(value: Profile) {
+    profile.value = JSON.parse(JSON.stringify(value))
+    ensureClassification(profile.value)
+    view.value = 'config'
+  }
+  async function saveProfile() {
+    try {
+      await api.request('profile.save', { profile: profile.value })
+      savedProfiles.value = await api.request<Profile[]>('profile.list')
+      notice.value = '方案已保存，可在方案设置中再次选择。'
+    } catch (caught) { report(caught) }
+  }
+  async function deleteProfile(id: string) {
+    try {
+      await api.request('profile.delete', { profileId: id })
+      savedProfiles.value = await api.request<Profile[]>('profile.list')
+    } catch (caught) { report(caught) }
+  }
+  async function updateSettings(values: Partial<Settings>) {
+    try {
+      settings.value = await api.request<Settings>('settings.update', { values })
+      theme.value = settings.value.theme
+      await refreshCollections()
+      return true
+    } catch (caught) { report(caught); return false }
+  }
 
   const selectedItems = computed(() => plan.value?.items.filter((item) => item.selected) ?? [])
   const selectedBytes = computed(() => selectedItems.value.reduce((sum, item) => sum + item.size, 0))
@@ -51,6 +91,8 @@ export const useAppStore = defineStore('app', () => {
 
   function choosePreset(id: PresetType) {
     profile.value = makeProfile(id)
+    profile.value.targetFolder = settings.value.defaultTargetFolder
+    ensureClassification(profile.value)
     view.value = 'config'
   }
 
@@ -62,16 +104,28 @@ export const useAppStore = defineStore('app', () => {
       }
       if (event === 'run.item') {
         runCompleted.value = Number(payload.index ?? runCompleted.value)
+        runSuccess.value = Number(payload.success ?? (payload.status === 'applied' ? runSuccess.value + 1 : runSuccess.value))
+        runSkipped.value = Number(payload.skipped ?? runSkipped.value)
+        runFailed.value = Number(payload.failed ?? runFailed.value)
         const item = payload.item as Record<string, unknown> | undefined
         runCurrent.value = String(item?.sourcePath ?? item?.source_path ?? '')
       }
     })
     try {
-      const [initial, loadedPresets] = await Promise.all([
-        api.request<{ firstLaunch: boolean }>('app.initialize'),
+      const [initial, loadedPresets, loadedSettings, profiles] = await Promise.all([
+        api.request<{ firstLaunch: boolean; lastProfile?: Profile }>('app.initialize'),
         api.request<Preset[]>('preset.list'),
+        api.request<Settings>('settings.get'), api.request<Profile[]>('profile.list'),
       ])
       presets.value = loadedPresets
+      settings.value = loadedSettings
+      theme.value = loadedSettings.theme
+      savedProfiles.value = profiles
+      lastProfile.value = initial.lastProfile
+      if (initial.lastProfile) {
+        profile.value = JSON.parse(JSON.stringify(initial.lastProfile))
+        ensureClassification(profile.value)
+      } else profile.value.targetFolder = loadedSettings.defaultTargetFolder
       engineReady.value = true
       await refreshCollections()
       if (initial.firstLaunch && !history.value.length) view.value = 'onboarding'
@@ -88,13 +142,16 @@ export const useAppStore = defineStore('app', () => {
     busy.value = true
     error.value = undefined
     scanChecked.value = 0
+    scanCancelled = false
     scanPath.value = profile.value.sourceFolders[0] ?? ''
     view.value = 'scan'
     try {
       plan.value = await api.request<Plan>('plan.create', { profile: profile.value })
+      if (scanCancelled) return
+      lastProfile.value = JSON.parse(JSON.stringify(profile.value))
       view.value = profile.value.presetType === 'duplicates' ? 'duplicates' : 'preview'
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : String(caught)
+      if (!scanCancelled) report(caught)
       view.value = 'config'
     } finally {
       busy.value = false
@@ -124,15 +181,19 @@ export const useAppStore = defineStore('app', () => {
 
   async function executePlan() {
     if (!plan.value) return
-    await persistSelection()
     busy.value = true
     runCompleted.value = 0
+    runSuccess.value = runSkipped.value = runFailed.value = 0
     runCurrent.value = ''
     view.value = 'executing'
     try {
+      await persistSelection()
       result.value = await api.request<RunResult>('run.execute', { planId: plan.value.planId })
       view.value = 'result'
       await refreshCollections()
+      if (settings.value.notifyOnComplete && document.hidden) {
+        try { await notifyCompletion(result.value) } catch { notice.value = '整理已完成，系统通知未能发送。请检查系统通知权限。' }
+      }
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : String(caught)
       view.value = 'preview'
@@ -146,6 +207,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function cancelScan() {
+    scanCancelled = true
     await api.request('plan.cancel')
     view.value = 'config'
   }
@@ -153,14 +215,12 @@ export const useAppStore = defineStore('app', () => {
   async function refreshCollections() {
     try {
       const [runs, items] = await Promise.all([
-        api.request<HistoryRun[]>('history.list', { limit: 50 }),
+        api.request<HistoryRun[]>('history.list'),
         api.request<QuarantineItem[]>('quarantine.list'),
       ])
       history.value = runs
       quarantine.value = items
-    } catch {
-      // Demo and early engine builds may not expose every collection yet.
-    }
+    } catch (caught) { report(caught) }
   }
 
   async function completeOnboarding() {
@@ -182,8 +242,11 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function loadHistoryDetail(runId: string) {
+    const request = ++detailRequest
+    historyDetail.value = undefined
     try {
-      historyDetail.value = await api.request<HistoryDetail>('history.detail', { runId })
+      const detail = await api.request<HistoryDetail>('history.detail', { runId })
+      if (request === detailRequest) historyDetail.value = detail
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : String(caught)
     }
@@ -205,18 +268,26 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function restoreQuarantine(quarantineIds: string[], destinationFolder?: string) {
-    await api.request('quarantine.restore', { quarantineIds, destinationFolder })
-    await refreshCollections()
+    return quarantineAction('quarantine.restore', quarantineIds, destinationFolder)
   }
 
   async function trashQuarantine(quarantineIds: string[]) {
-    await api.request('quarantine.moveToTrash', { quarantineIds })
-    await refreshCollections()
+    return quarantineAction('quarantine.moveToTrash', quarantineIds)
+  }
+  async function quarantineAction(method: string, quarantineIds: string[], destinationFolder?: string) {
+    busy.value = true
+    try {
+      const counts = await api.request<{ restored?: number; moved?: number; skipped?: number; failed: number }>(method, { quarantineIds, destinationFolder })
+      notice.value = `已处理 ${counts.restored ?? counts.moved ?? 0} 个，跳过 ${counts.skipped ?? 0} 个，失败 ${counts.failed} 个。`
+      await refreshCollections()
+      return true
+    } catch (caught) { report(caught); return false } finally { busy.value = false }
   }
 
   return {
     view, presets, profile, plan, result, undoPreview, history, historyDetail, quarantine, engineReady, error,
-    scanChecked, scanPath, runCompleted, runCurrent, busy, theme,
+    scanChecked, scanPath, runCompleted, runCurrent, busy, theme, settings, savedProfiles, lastProfile, notice, runSuccess, runSkipped, runFailed,
+    useProfile, saveProfile, deleteProfile, updateSettings, report,
     selectedItems, selectedBytes,
     go, choosePreset, initialize, validateProfile, createPlan, toggleItem,
     selectDuplicateKeep, persistSelection, executePlan, cancelRun, cancelScan,

@@ -15,10 +15,10 @@ from .paths import (
     unique_destination,
 )
 from .presets import (
-    CATEGORIES,
     IMAGE_EXTENSIONS,
     INSTALLER_EXTENSIONS,
 )
+from .profiles import normalized_extension, type_configuration, validate_type_configuration
 from .store import Store
 from .v3_core import (
     CORE_VERSION,
@@ -45,12 +45,19 @@ def iso(value: datetime) -> str:
     return value.isoformat()
 
 
-def validate_profile(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+def validate_profile(profile: Dict[str, Any], check_paths: bool = True) -> List[Dict[str, Any]]:
     issues: List[Dict[str, Any]] = []
-    sources = [absolute_path(item) for item in profile.get("sourceFolders", [])]
+    source_values = profile.get("sourceFolders", [])
+    if not isinstance(source_values, list) or any(
+        not isinstance(value, str) or not value.strip() for value in source_values
+    ):
+        return [{"code": "SOURCE_NOT_FOUND", "field": "sourceFolders"}]
+    sources = [absolute_path(item) for item in source_values]
     if not sources:
         issues.append({"code": "SOURCE_NOT_FOUND", "field": "sourceFolders"})
     for source in sources:
+        if not check_paths:
+            continue
         if not source.exists() or not source.is_dir():
             issues.append({"code": "SOURCE_NOT_FOUND", "path": str(source)})
         elif not os.access(str(source), os.R_OK | os.X_OK):
@@ -62,14 +69,14 @@ def validate_profile(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     target_value = profile.get("targetFolder")
     if preset not in {"old-installers", "duplicates"}:
-        if not target_value:
+        if not isinstance(target_value, str) or not target_value.strip():
             issues.append({"code": "TARGET_NOT_WRITABLE", "field": "targetFolder"})
         else:
             target = absolute_path(target_value)
             nearest = target
             while not nearest.exists() and nearest.parent != nearest:
                 nearest = nearest.parent
-            if not nearest.exists() or not os.access(str(nearest), os.W_OK | os.X_OK):
+            if check_paths and (not nearest.is_dir() or not os.access(str(nearest), os.W_OK | os.X_OK)):
                 issues.append({"code": "TARGET_NOT_WRITABLE", "path": str(target)})
             for source in sources:
                 if path_key(source) == path_key(target) or is_within(target, source):
@@ -80,8 +87,28 @@ def validate_profile(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
                             "source": str(source),
                         }
                     )
-    if preset == "by-type" and not profile.get("parameters", {}).get("categories"):
-        issues.append({"code": "NO_CATEGORIES", "field": "parameters.categories"})
+    if not isinstance(profile.get("parameters", {}), dict):
+        issues.append({"code": "INVALID_TYPE_RULES", "field": "parameters"})
+    elif preset == "by-type":
+        rule_issues = validate_type_configuration(profile)
+        issues.extend(rule_issues)
+        if not rule_issues and isinstance(target_value, str) and target_value.strip():
+            rules, unmatched, other_folder = type_configuration(profile)
+            folders = [rule["folderName"] for rule in rules if rule["enabled"]]
+            if unmatched == "other":
+                folders.append(other_folder)
+            target = absolute_path(target_value)
+            for folder in folders:
+                destination = target / folder
+                if not is_within(destination, target):
+                    issues.append({"code": "TARGET_OUTSIDE_ROOT", "path": str(destination)})
+                elif any(is_within(destination, source) for source in sources):
+                    issues.append({"code": "SOURCE_TARGET_OVERLAP", "path": str(destination)})
+    if isinstance(profile.get("parameters", {}), dict):
+        params = profile.get("parameters", {})
+        for key, minimum, maximum in [("olderThanDays", 1, 36500), ("minimumBytes", 0, 10**15)]:
+            if key in params and (type(params[key]) is not int or not minimum <= params[key] <= maximum):
+                issues.append({"code": "INVALID_PARAMETER", "field": "parameters.%s" % key})
     return issues
 
 
@@ -92,12 +119,17 @@ def scan_files(
     cancelled: CancelledCheck = None,
 ):
     count = 0
+    seen: Set[str] = set()
     for resource in walk_files(sources, recursive):
         if cancelled and cancelled():
             raise Cancelled()
         source = resource.path
         if source is None:
             continue
+        key = path_key(source)
+        if key in seen:
+            continue
+        seen.add(key)
         count += 1
         reason = should_skip_name(source.name)
         if progress and (count == 1 or count % 100 == 0):
@@ -162,12 +194,11 @@ class Planner:
         items: List[Dict[str, Any]] = []
         params = profile.get("parameters", {})
         age_days = int(params.get("olderThanDays", 90))
-        enabled_categories = params.get("categories", list(CATEGORIES.keys()))
-        category_filters = {
-            key: extension_filter(CATEGORIES[key]["extensions"])
-            for key in enabled_categories
-            if key in CATEGORIES and key != "other"
-        }
+        rules, unmatched, other_folder = type_configuration(profile) if profile["presetType"] == "by-type" else ([], "keep", "")
+        category_filters = [
+            (rule, extension_filter([normalized_extension(value) for value in rule["extensions"]]))
+            for rule in rules if rule["enabled"]
+        ] if profile["presetType"] == "by-type" else []
         image_filter = extension_filter(IMAGE_EXTENSIONS)
         modified_filter = last_modified_filter()
         include_archives = bool(params.get("includeArchives", False))
@@ -185,21 +216,25 @@ class Planner:
             if skip_reason:
                 item = self._item(plan_id, len(items), source, None, "skip", False, skip_reason)
             elif profile["presetType"] == "by-type":
-                category = next(
+                rule = next(
                     (
-                        key
-                        for key, filter_instance in category_filters.items()
+                        candidate
+                        for candidate, filter_instance in category_filters
                         if apply(filter_instance, resource_for(source, root))
                     ),
-                    "other" if "other" in enabled_categories else "",
+                    None,
                 )
-                if category:
-                    destination = target / CATEGORIES[category]["label"] / source.name
+                if rule is not None or unmatched == "other":
+                    folder = rule["folderName"] if rule else other_folder
+                    destination = target / folder / source.name
                     destination, renamed = unique_destination(destination, occupied)
                     item = self._item(plan_id, len(items), source, destination, "move", True)
-                    item["metadata"]["category"] = category
+                    item["metadata"]["category"] = rule["id"] if rule else "other"
+                    item["metadata"]["categoryName"] = rule["name"] if rule else other_folder
                     if renamed:
                         item["warningCode"] = "TARGET_CONFLICT"
+                else:
+                    item = self._item(plan_id, len(items), source, None, "skip", False, "未匹配分类，留在原处")
             elif profile["presetType"] == "by-date":
                 date_resource = resource_for(source, root)
                 if apply(image_filter, date_resource) and apply(modified_filter, date_resource):

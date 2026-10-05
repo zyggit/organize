@@ -50,6 +50,13 @@ class RpcServer:
             return self.service.presets()
         if method == "profile.validate":
             return self.service.validate(params["profile"])
+        if method == "profile.list":
+            return self.service.saved_profiles()
+        if method == "profile.save":
+            return self.service.save_profile(params["profile"])
+        if method == "profile.delete":
+            self.service.store.delete_named_profile(params["profileId"])
+            return {"deleted": True}
         if method == "plan.create":
             self.plan_cancel.clear()
             return self.service.create_plan(
@@ -66,7 +73,7 @@ class RpcServer:
                 params["planId"], lambda data: self.event("run.%s" % data.get("type", "progress"), data)
             )
         if method == "history.list":
-            return self.service.history(int(params.get("limit", 50)))
+            return self.service.history(params.get("limit"))
         if method == "history.detail":
             return self.service.history_detail(params["runId"])
         if method == "history.undoPlan":
