@@ -25,7 +25,7 @@ def default_data_dir() -> Path:
         return Path(override).expanduser().absolute()
     if os.name == "nt":
         base = Path(os.environ.get("LOCALAPPDATA", str(Path.home())))
-    elif os.sys.platform == "darwin":
+    elif sys.platform == "darwin":
         base = Path.home() / "Library" / "Application Support"
     else:
         base = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")))

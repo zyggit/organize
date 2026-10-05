@@ -7,15 +7,17 @@ from pathlib import Path
 import plistlib
 import shutil
 import subprocess
+import sys
 import tempfile
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ImportError:
+else:
     import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_NAME = 'Organize-macos-arm64.dmg'
 privacy_spec = importlib.util.spec_from_file_location('privacy_audit', ROOT / 'scripts/check-release-privacy.py')
+assert privacy_spec is not None and privacy_spec.loader is not None
 privacy = importlib.util.module_from_spec(privacy_spec)
 privacy_spec.loader.exec_module(privacy)
 

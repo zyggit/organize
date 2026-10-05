@@ -5,6 +5,7 @@ import unittest
 import zipfile
 
 spec = importlib.util.spec_from_file_location('privacy', Path(__file__).with_name('check-release-privacy.py'))
+assert spec is not None and spec.loader is not None
 privacy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(privacy)
 

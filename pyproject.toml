@@ -90,6 +90,8 @@ module = [
     "textract",
     "requests",
     "macos_tags",
+    "tomli",
+    "PyInstaller.*",
 ]
 ignore_missing_imports = true
 

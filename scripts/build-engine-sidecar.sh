@@ -36,10 +36,18 @@ mkdir -p \
   "$pyinstaller_cache" \
   "$tauri_binaries"
 
+privacy_build_args=(--noupx)
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  # Strip upstream wheel debug symbols, including their authors' home paths.
+  # PyInstaller re-signs processed Mach-O libraries before freezing the engine.
+  privacy_build_args+=(--strip)
+fi
+
 "$venv_dir/bin/python" -m PyInstaller \
   --clean \
   --noconfirm \
   --onefile \
+  "${privacy_build_args[@]}" \
   --name organize-engine \
   --paths "$repo_root" \
   --paths "$repo_root/engine/src" \

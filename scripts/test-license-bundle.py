@@ -12,6 +12,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('license_bundle', ROOT / 'scripts/generate-license-bundle.py')
+assert spec is not None and spec.loader is not None
 bundle = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bundle)
 

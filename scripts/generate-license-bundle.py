@@ -17,9 +17,9 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ImportError:
+else:
     import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]

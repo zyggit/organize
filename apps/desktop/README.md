@@ -103,6 +103,7 @@ the first successful run, verify the Release's Assets contain
 `Organize-macos-arm64.dmg`, `SHA256SUMS.txt` and `build-info.json`; the website's
 download entry will enable automatically.
 
+macOS freezing strips third-party native debug symbols to remove upstream build paths.
 Release privacy checks scan tracked source, the actual app bundle, decompressed
 PyInstaller modules and bundled ZIP/crate contents for personal home paths and
 recognizable credential patterns. Runtime databases/logs, private credential

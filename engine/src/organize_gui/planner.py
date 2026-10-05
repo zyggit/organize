@@ -292,6 +292,7 @@ class Planner:
             checked += 1
             if apply(v3_duplicate, duplicate_resource):
                 original = Path(duplicate_resource.vars["duplicate"]["original"])
+                assert duplicate_resource.path is not None
                 duplicate = Path(duplicate_resource.path)
                 basedirs.setdefault(original, resource.basedir or original.parent)
                 basedirs.setdefault(duplicate, resource.basedir or duplicate.parent)

@@ -230,7 +230,7 @@ class Executor:
     ) -> Dict[str, Any]:
         items = self.store.quarantine_items(quarantine_ids)
         restored = skipped = failed = 0
-        occupied = set()
+        occupied: set[str] = set()
         destination_root = Path(destination_folder).expanduser().absolute() if destination_folder else None
         for item in items:
             current = Path(item["quarantine_path"])

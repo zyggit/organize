@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 spec = importlib.util.spec_from_file_location('release', Path(__file__).with_name('prepare-desktop-release.py'))
+assert spec is not None and spec.loader is not None
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
