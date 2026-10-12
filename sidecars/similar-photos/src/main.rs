@@ -652,7 +652,8 @@ mod tests {
             stop_file: None,
         };
         let output = scan(&request, |_| {}).unwrap();
-        assert_eq!(output.heic_decoder, "none");
+        // heic_decoder is platform-dependent ("sips" on macOS with /usr/bin/sips, "none" elsewhere).
+        assert_eq!(output.heic_decoder, heic_decoder_name());
         let exact_names = names_in(&output.exact);
         assert!(exact_names.iter().any(|group| group.contains(&"original.png".to_string()) && group.contains(&"copy.png".to_string())), "{exact_names:?}");
         let similar_names = names_in(&output.similar);

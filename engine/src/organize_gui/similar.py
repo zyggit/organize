@@ -250,11 +250,11 @@ def merge_groups(result: Dict[str, Any]) -> List[tuple]:
         seen = {path_key(Path(file["path"])) for file in files}
         extras = []
         for file in list(files):
-            index = path_to_exact.get(path_key(Path(file["path"])))
-            if index is None:
+            exact_index = path_to_exact.get(path_key(Path(file["path"])))
+            if exact_index is None:
                 continue
-            consumed.add(index)
-            for sibling in exact_groups[index]:
+            consumed.add(exact_index)
+            for sibling in exact_groups[exact_index]:
                 key = path_key(Path(sibling["path"]))
                 if key in seen:
                     continue
